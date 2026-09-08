@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/proto"]
+members = ["crates/proto", "crates/server"]
 [workspace.package]
 version = "1.0.0"
 edition = "2021"
@@ -8,9 +8,15 @@ repository = "https://github.com/jagerente/whisperia"
 rust-version = "1.85"
 
 [workspace.dependencies]
+whisperia-proto = { path = "crates/proto" }
 thiserror = "2"
+tracing = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net", "io-util", "signal"] }
+quinn = { version = "0.11", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 serde = { version = "1", features = ["derive"] }
 postcard = { version = "1", default-features = false, features = ["use-std"] }
+sha2 = "0.10"
 
 [workspace.lints.rust]
 # `deny`, not `forbid`: the small FFI modules in `client/src/desktop` allow it for themselves.
