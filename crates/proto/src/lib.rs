@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod control;
+pub mod peek;
 mod text;
 pub mod video;
 
