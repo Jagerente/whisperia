@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = ["crates/proto"]
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+repository = "https://github.com/jagerente/whisperia"
+rust-version = "1.85"
+
+[workspace.dependencies]
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1", default-features = false, features = ["use-std"] }
+
+[workspace.lints.rust]
+# `deny`, not `forbid`: the small FFI modules in `client/src/desktop` allow it for themselves.
+unsafe_code = "deny"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+strip = true
+
+# Audio DSP in a debug build cannot keep up with realtime; optimise dependencies always.
+[profile.dev.package."*"]
+opt-level = 3
