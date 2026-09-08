@@ -1,4 +1,6 @@
 pub mod audio;
+pub mod control;
+mod text;
 
 pub const PROTOCOL_VERSION: u16 = 1;
 
