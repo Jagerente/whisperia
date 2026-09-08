@@ -1,0 +1,13 @@
+[package]
+name = "whisperia-proto"
+description = "whisperia wire format: audio datagrams and control messages"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+
+[lints]
+workspace = true
