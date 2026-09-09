@@ -13,8 +13,10 @@ tracing.workspace = true
 tokio.workspace = true
 quinn.workspace = true
 rustls.workspace = true
+mdns-sd.workspace = true
 sha2.workspace = true
 rcgen = "0.14"
+if-addrs = "0.15"
 
 [lints]
 workspace = true
