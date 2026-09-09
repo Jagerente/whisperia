@@ -1424,6 +1424,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "whisperia"
+version = "1.0.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "whisperia-proto"
 version = "1.0.0"
 dependencies = [

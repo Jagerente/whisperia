@@ -1,0 +1,17 @@
+[package]
+name = "whisperia"
+description = "whisperia voice client"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json = "1"
+
+[features]
+testing = []
+
+[lints]
+workspace = true
