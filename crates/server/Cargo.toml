@@ -15,8 +15,10 @@ quinn.workspace = true
 rustls.workspace = true
 mdns-sd.workspace = true
 sha2.workspace = true
+bytes = "1"
 rcgen = "0.14"
 if-addrs = "0.15"
+getrandom = "0.3"
 
 [lints]
 workspace = true
