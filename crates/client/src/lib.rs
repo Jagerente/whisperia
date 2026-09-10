@@ -1,4 +1,5 @@
 pub mod address;
+pub mod codec;
 pub mod discovery;
 mod files;
 pub mod jitter;
