@@ -18,9 +18,11 @@ mdns-sd.workspace = true
 sha2.workspace = true
 bytes = "1"
 serde_json = "1"
+rubato = "5"
 opus = "0.4"
 nnnoiseless = { version = "0.5", default-features = false }
 ndarray = "0.15"
+audioadapter-buffers = "5"
 
 # DeepFilterNet3 is not on crates.io (the published crate predates it). The revision is pinned, and
 # so is tract: deep_filter does not compile against later 0.21.x releases.

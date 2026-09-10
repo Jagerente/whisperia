@@ -1,5 +1,7 @@
 pub mod cue;
 pub mod denoise;
+pub mod level;
+pub mod resample;
 
 pub fn db_to_gain(db: f32) -> f32 {
     10f32.powf(db / 20.0)
