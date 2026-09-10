@@ -1427,11 +1427,15 @@ dependencies = [
 name = "whisperia"
 version = "1.0.0"
 dependencies = [
+ "bytes",
  "mdns-sd",
+ "quinn",
+ "rustls",
  "serde",
  "serde_json",
  "sha2",
  "thiserror",
+ "tokio",
  "tracing",
  "whisperia-proto",
 ]
