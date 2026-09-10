@@ -19,6 +19,21 @@ sha2.workspace = true
 bytes = "1"
 serde_json = "1"
 opus = "0.4"
+nnnoiseless = { version = "0.5", default-features = false }
+ndarray = "0.15"
+
+# DeepFilterNet3 is not on crates.io (the published crate predates it). The revision is pinned, and
+# so is tract: deep_filter does not compile against later 0.21.x releases.
+deep_filter = { git = "https://github.com/Rikorose/DeepFilterNet", rev = "d375b2d8309e0935d165700c91da9de862a99c31", default-features = false, features = ["tract", "default-model-ll"] }
+tract-core = "=0.21.4"
+tract-data = "=0.21.4"
+tract-hir = "=0.21.4"
+tract-linalg = "=0.21.4"
+tract-nnef = "=0.21.4"
+tract-onnx = "=0.21.4"
+tract-onnx-opl = "=0.21.4"
+tract-pulse = "=0.21.4"
+tract-pulse-opl = "=0.21.4"
 
 [features]
 testing = []

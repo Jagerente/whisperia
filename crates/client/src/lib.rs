@@ -1,6 +1,7 @@
 pub mod address;
 pub mod codec;
 pub mod discovery;
+pub mod dsp;
 mod files;
 pub mod jitter;
 pub mod net;
