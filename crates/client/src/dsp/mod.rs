@@ -1,7 +1,10 @@
+pub mod agc;
 pub mod cue;
 pub mod denoise;
 pub mod level;
+pub mod limiter;
 pub mod resample;
+pub mod voice;
 
 pub fn db_to_gain(db: f32) -> f32 {
     10f32.powf(db / 20.0)
