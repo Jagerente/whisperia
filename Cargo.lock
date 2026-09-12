@@ -2473,6 +2473,7 @@ dependencies = [
  "audioadapter-buffers",
  "bytes",
  "deep_filter",
+ "directories",
  "mdns-sd",
  "ndarray",
  "nnnoiseless",

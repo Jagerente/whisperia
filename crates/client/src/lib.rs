@@ -1,5 +1,6 @@
 pub mod address;
 pub mod codec;
+pub mod config;
 pub mod desktop;
 pub mod discovery;
 pub mod dsp;
