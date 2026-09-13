@@ -1,5 +1,8 @@
 pub mod address;
+pub mod audio;
 pub mod codec;
+#[cfg(windows)]
+mod com;
 pub mod config;
 pub mod desktop;
 pub mod discovery;
