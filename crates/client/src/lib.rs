@@ -7,6 +7,7 @@ pub mod config;
 pub mod desktop;
 pub mod discovery;
 pub mod dsp;
+pub mod engine;
 mod files;
 pub mod jitter;
 pub mod net;
