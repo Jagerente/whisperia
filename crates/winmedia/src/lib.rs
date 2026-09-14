@@ -2,8 +2,10 @@
 
 mod d3d;
 mod mf;
+mod sources;
 
 pub use d3d::AdapterLuid;
+pub use sources::{icon_of, list_sources, preview_of, ListedSource, Preview, Source, SourceId};
 
 #[derive(Debug, Clone)]
 pub struct EncodedFrame {
