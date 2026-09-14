@@ -3,6 +3,7 @@
 mod capture;
 mod convert;
 mod d3d;
+mod decode;
 mod mf;
 mod sources;
 
