@@ -4,12 +4,15 @@ mod capture;
 mod convert;
 mod d3d;
 mod decode;
+mod encode;
 mod mf;
+mod share;
 mod shared;
 mod sources;
 mod wgpu_import;
 
 pub use d3d::AdapterLuid;
+pub use share::{EndReason, Share, ShareSettings};
 pub use shared::{SharedDecoder, SharedEvent, SharedTextures};
 pub use sources::{icon_of, list_sources, preview_of, ListedSource, Preview, Source, SourceId};
 pub use wgpu_import::{adapter_luid, ImportedTextures};
