@@ -12,8 +12,11 @@ testing = []
 
 [dependencies]
 thiserror.workspace = true
+tracing.workspace = true
 
 [target.'cfg(windows)'.dependencies]
+# The window reads the shared textures through wgpu: the version is the one its renderer uses.
+wgpu = { version = "30", default-features = false, features = ["dx12"] }
 # `#[implement]` expands to paths in `windows_core`.
 windows-core = "0.62"
 

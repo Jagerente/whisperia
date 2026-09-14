@@ -5,10 +5,14 @@ mod convert;
 mod d3d;
 mod decode;
 mod mf;
+mod shared;
 mod sources;
+mod wgpu_import;
 
 pub use d3d::AdapterLuid;
+pub use shared::{SharedDecoder, SharedEvent, SharedTextures};
 pub use sources::{icon_of, list_sources, preview_of, ListedSource, Preview, Source, SourceId};
+pub use wgpu_import::{adapter_luid, ImportedTextures};
 
 #[derive(Debug, Clone)]
 pub struct EncodedFrame {
