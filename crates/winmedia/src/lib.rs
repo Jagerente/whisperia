@@ -1,5 +1,7 @@
 #![cfg(windows)]
 
+mod capture;
+mod convert;
 mod d3d;
 mod mf;
 mod sources;
