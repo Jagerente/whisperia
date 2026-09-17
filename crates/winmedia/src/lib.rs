@@ -9,12 +9,14 @@ mod mf;
 mod share;
 mod shared;
 mod sources;
+mod watch;
 mod wgpu_import;
 
 pub use d3d::AdapterLuid;
 pub use share::{EndReason, Share, ShareSettings};
 pub use shared::{SharedDecoder, SharedEvent, SharedTextures};
 pub use sources::{icon_of, list_sources, preview_of, ListedSource, Preview, Source, SourceId};
+pub use watch::{WindowNews, WindowWatch};
 pub use wgpu_import::{adapter_luid, ImportedTextures};
 
 #[derive(Debug, Clone)]
