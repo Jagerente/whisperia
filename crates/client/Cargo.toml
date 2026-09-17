@@ -40,10 +40,18 @@ tract-onnx-opl = "=0.21.4"
 tract-pulse = "=0.21.4"
 tract-pulse-opl = "=0.21.4"
 
+# The window. Skia on wgpu is the renderer that was measured to be cheap enough (FemtoVG costs six
+# times the CPU per frame) and the one that takes the decoder's textures without a copy; wgpu's
+# version is Slint's. The software renderer is what is left on a PC where Direct3D 12 does not
+# start. The testing backend is what `gui::Harness` drives the window with, without a screen; it
+# follows Slint's version exactly and comes only with the `testing` feature, like the harness.
+slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-skia", "renderer-software", "software-renderer-systemfonts", "software-renderer-path", "unstable-wgpu-30", "unstable-winit-030", "accessibility", "image-default-formats"] }
+
 [features]
 testing = []
 
 [target.'cfg(windows)'.dependencies]
+whisperia-winmedia.workspace = true
 wasapi = "0.24"
 
 [lints]

@@ -11,5 +11,6 @@ pub mod engine;
 mod files;
 pub mod jitter;
 pub mod net;
+pub mod screen;
 pub mod trust;
 pub mod wake;
