@@ -6,6 +6,10 @@ mod d3d;
 mod decode;
 mod encode;
 mod mf;
+#[cfg(feature = "testing")]
+mod pattern;
+#[cfg(feature = "testing")]
+pub mod selftest;
 mod share;
 mod shared;
 mod sources;
@@ -13,6 +17,8 @@ mod watch;
 mod wgpu_import;
 
 pub use d3d::AdapterLuid;
+#[cfg(feature = "testing")]
+pub use pattern::Pattern;
 pub use share::{EndReason, Share, ShareSettings};
 pub use shared::{SharedDecoder, SharedEvent, SharedTextures};
 pub use sources::{icon_of, list_sources, preview_of, ListedSource, Preview, Source, SourceId};

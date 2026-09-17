@@ -52,6 +52,14 @@ features = [
     "Win32_UI_WindowsAndMessaging",
 ]
 
+[[test]]
+name = "roundtrip"
+required-features = ["testing"]
+
+[[test]]
+name = "watch"
+required-features = ["testing"]
+
 # The one crate of the workspace that is FFI from top to bottom: every call into Direct3D, Media
 # Foundation and Win32 is `unsafe`. Nothing unsafe leaves it.
 [lints.rust]
