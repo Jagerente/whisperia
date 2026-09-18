@@ -1,4 +1,5 @@
 pub mod address;
+pub mod app;
 pub mod audio;
 pub mod codec;
 #[cfg(windows)]
