@@ -19,6 +19,7 @@ directories.workspace = true
 mdns-sd.workspace = true
 sha2.workspace = true
 bytes = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 serde_json = "1"
 cpal = "0.18"
 rtrb = "0.4"
