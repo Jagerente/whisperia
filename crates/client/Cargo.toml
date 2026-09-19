@@ -21,6 +21,9 @@ sha2.workspace = true
 bytes = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 serde_json = "1"
+ureq = { version = "3.4", default-features = false, features = ["rustls", "gzip"] }
+url = "2"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
 cpal = "0.18"
 rtrb = "0.4"
 rubato = "5"

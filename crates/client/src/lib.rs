@@ -13,6 +13,7 @@ mod files;
 pub mod instance;
 pub mod jitter;
 pub mod net;
+pub mod preview;
 pub mod screen;
 pub mod trust;
 pub mod wake;
