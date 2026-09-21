@@ -1,0 +1,114 @@
+import { Theme } from "theme.slint";
+import { Button, Link, Look, Segmented, SliderBar, SwitchLine } from "widgets.slint";
+import { Do, Noise, State } from "state.slint";
+
+export global Hearing {
+    out property <float> gain: State.auto-level ? State.auto-level-gain : State.mic-gain;
+    out property <string> gain-said: State.auto-level ? "automatic, " + Do.loudness(gain) : Do.loudness(gain);
+    out property <string> test-said: State.test-trouble;
+    out property <color> test-colour: State.test-trouble != "" ? Theme.warn : Theme.text-dim;
+}
+
+export component SavedSlider inherits SliderBar {
+    released => {
+        Do.volumes-settled();
+    }
+}
+
+export component DecibelSlider inherits SavedSlider {
+    minimum: -30;
+    maximum: 20;
+    mark: 0;
+}
+
+export component MicGainSlider inherits DecibelSlider {
+    label: "Microphone gain";
+    maximum: 30;
+    enabled: !State.auto-level;
+    value: Hearing.gain;
+    moved(db) => {
+        Do.set-mic-gain(db);
+    }
+}
+
+export component SpeakerVolumeSlider inherits SavedSlider {
+    label: "Speaker volume";
+    minimum: 0;
+    maximum: 200;
+    mark: 100;
+    value: State.volume-percent;
+    moved(percent) => {
+        Do.set-volume(percent);
+    }
+}
+
+export component AutoGainLine inherits SwitchLine {
+    label: "Automatic gain control";
+    on: State.auto-level;
+    toggled => {
+        Do.toggle-auto-level();
+    }
+}
+
+export component NoiseChoice inherits Segmented {
+    property <[Noise]> kinds: [Noise.off, Noise.light, Noise.strong];
+    label: "Noise suppression";
+    choices: ["Off", "Light", "Strong"];
+    chosen: State.noise == Noise.strong ? 2 : State.noise == Noise.light ? 1 : 0;
+    picked(index) => {
+        Do.pick-noise(root.kinds[index]);
+    }
+}
+
+export component NoiseCredit inherits HorizontalLayout {
+    alignment: end;
+    spacing: Theme.space-xs;
+    height: Theme.control-compact;
+    if State.noise-credit != "": Text {
+        text: "Powered by";
+        color: Theme.text-dim;
+        font-size: Theme.tiny;
+        vertical-alignment: center;
+    }
+    if State.noise-credit != "": Link {
+        text: State.noise-credit;
+        label: "Powered by " + State.noise-credit;
+        clicked => {
+            Do.open-link(State.noise-link);
+        }
+    }
+}
+
+export component MicTestButton inherits Button {
+    text: State.testing ? "Stop" : "Test";
+    label: State.testing ? "Stop the microphone test" : "Test the microphone";
+    look: State.testing ? Look.primary : Look.plain;
+    min-width: 64px;
+    clicked => {
+        Do.toggle-test();
+    }
+}
+
+export component LevelMeter inherits Rectangle {
+    in property <length> thickness: 6px;
+    in property <length> inset: 8px;
+    accessible-role: progress-indicator;
+    accessible-label: "Microphone level";
+    accessible-value: Math.round(State.mic-level * 100);
+    accessible-value-minimum: 0;
+    accessible-value-maximum: 100;
+    Rectangle {
+        x: root.inset;
+        y: (parent.height - self.height) / 2;
+        width: parent.width - 2 * root.inset;
+        height: root.thickness;
+        border-radius: self.height / 2;
+        background: Theme.raised;
+        Rectangle {
+            x: 0;
+            width: parent.width * State.mic-level;
+            border-radius: parent.border-radius;
+            background: Theme.good;
+        }
+    }
+}
