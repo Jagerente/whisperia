@@ -1,0 +1,364 @@
+
+export enum Page { servers, connecting, rooms, room }
+
+export enum Ask { nothing, trust, password, other-version }
+
+export enum Standing { checking, up, other-version, silent }
+
+export enum Quality { good, weak, poor }
+
+export enum Refusal { nothing, password, wrong-password, full }
+
+export enum TroubleWith { microphone, speakers, program }
+
+export enum Noise { off, light, strong }
+
+export enum Appearance { system, light, dark }
+
+export enum ShareTab { screens, windows }
+
+export enum SettingsPart { general, profile, audio, notifications, keybinds, about }
+
+export struct Trouble {
+    device: TroubleWith,
+    title: string,
+    caption: string,
+    button: string,
+    button-label: string,
+}
+
+export struct PingPoint {
+    height: float,
+    quality: Quality,
+}
+
+export struct ServerEntry {
+    name: string,
+    address: string,
+    standing: Standing,
+    rooms: int,
+    people: int,
+    says: string,
+    remembered: bool,
+}
+
+export struct RoomEntry {
+    name: string,
+    tally: string,
+
+    people: string,
+    locked: bool,
+    full: bool,
+}
+
+export struct Seats {
+    any: bool,
+    most: int,
+}
+
+export struct Face {
+    name: string,
+    initials: string,
+
+    animal: string,
+    tint: int,
+}
+
+export struct Guest {
+    face: Face,
+    host: bool,
+}
+
+export struct Animal {
+    glyph: string,
+    label: string,
+}
+
+export struct Person {
+    id: int,
+    face: Face,
+    me: bool,
+    host: bool,
+    talking: bool,
+    muted: bool,
+    deafened: bool,
+    showing: bool,
+    watched: bool,
+    watches-me: bool,
+    screen-has-sound: bool,
+
+    volume: float,
+    screen-volume: float,
+}
+
+export enum About { said, joined, left, kicked, host, locked, unlocked, size, sharing, stopped-sharing, renamed }
+
+export global Pointer {
+    in-out property <Point> pressed-at;
+    in-out property <int> presses;
+}
+
+export struct Embed {
+    url: string,
+    site: string,
+    title: string,
+    description: string,
+    picture: image,
+    has-picture: bool,
+    wide: bool,
+    colour: color,
+    has-colour: bool,
+}
+
+export struct ChatLine {
+    number: int,
+    about: About,
+    face: Face,
+    sender: int,
+    here: bool,
+    text: string,
+    styled: styled-text,
+    embeds: [Embed],
+    time: string,
+
+    head: bool,
+}
+
+export struct Source {
+    id: int,
+    label: string,
+    detail: string,
+    preview: image,
+    has-preview: bool,
+
+    pictures: int,
+
+    icon: image,
+    has-icon: bool,
+    minimized: bool,
+}
+
+export enum Showing { offered, picture, mine, ended }
+
+export struct Tile {
+    sharer: int,
+    face: Face,
+    shows: Showing,
+    picture: image,
+    has-picture: bool,
+    has-sound: bool,
+    volume: float,
+
+    silent: bool,
+    detail: string,
+    label: string,
+    minimized: bool,
+}
+
+export struct Sound {
+    group: string,
+    name: string,
+    on: bool,
+}
+
+export struct Keybind {
+    name: string,
+
+    keys: string,
+
+    default-keys: string,
+
+    asking: bool,
+    remark: string,
+    refused: bool,
+}
+
+export global State {
+    in property <Page> page;
+    in property <Face> me;
+    in property <[Animal]> animals;
+
+    in property <int> animal;
+    in property <string> version;
+    in property <string> source-link;
+    in property <string> notice;
+    in property <bool> notice-is-error;
+
+    in property <[ServerEntry]> servers;
+    in property <string> search-trouble;
+
+    in property <string> address-to-correct;
+    in property <string> refused-address;
+    in property <string> refused-why;
+
+    in property <string> connecting-to;
+    in property <int> attempt;
+    in property <string> retry-reason;
+
+    in property <string> server-name;
+    in property <string> server-address;
+    in property <[RoomEntry]> rooms;
+
+    in property <bool> looking-at-new-room;
+    in property <int> looked-room;
+    in property <[Guest]> room-guests;
+    in property <string> joining;
+    in property <string> locked-out;
+    in property <Refusal> refusal;
+    in property <int> fewest-seats;
+    in property <int> most-seats;
+
+    in property <string> room-name;
+    in property <bool> hosting;
+    in property <bool> room-locked;
+    in property <Seats> room-seats;
+    in property <[Person]> people;
+    in property <[ChatLine]> chat;
+    in property <int> chat-heard;
+    in property <int> chat-limit;
+
+    in property <[Tile]> watching;
+    in property <[Tile]> shelf;
+    in property <bool> full-screen;
+    in property <bool> muted;
+    in property <bool> deafened;
+    in property <bool> showing;
+    in property <bool> choosing;
+    in property <bool> listing;
+    in property <[Source]> screens-offered;
+    in property <[Source]> windows-offered;
+
+    in property <ShareTab> share-tab;
+
+    in property <bool> source-chosen;
+    in property <int> chosen-source;
+    in property <float> mic-level;
+    in property <[Trouble]> audio-troubles;
+    in property <bool> has-tray;
+
+    in property <Quality> quality;
+    in property <string> connection;
+    in property <string> ping;
+    in property <Quality> ping-quality;
+    in property <[PingPoint]> ping-graph;
+    in property <string> ping-top;
+    in property <string> ping-middle;
+    in property <string> loss;
+    in property <string> loss-caption;
+    in property <Quality> loss-quality;
+    in property <string> server-details;
+
+    in property <bool> settings-open;
+    in property <SettingsPart> settings-part;
+    in property <[Keybind]> keybinds;
+    in property <bool> keybinds-are-default;
+
+    in property <[string]> microphones;
+    in property <[string]> speakers;
+    in property <int> microphone;
+    in property <int> speaker;
+    in property <bool> testing;
+    in property <string> test-trouble;
+    in property <Noise> noise;
+    in property <bool> auto-level;
+    in property <float> auto-level-gain;
+    in property <float> mic-gain;
+
+    in property <float> volume-percent;
+
+    in property <string> noise-credit;
+    in property <string> noise-link;
+    in property <int> resolution;
+    in property <int> frame-rate;
+    in property <[string]> resolutions;
+    in property <[string]> frame-rates;
+    in property <bool> sounds;
+    in property <[Sound]> each-sound;
+
+    in property <bool> close-to-tray;
+
+    in property <Appearance> appearance;
+
+    in property <Ask> ask;
+    in property <string> ask-server;
+    in property <string> ask-fingerprint;
+    in property <string> ask-says;
+    in property <bool> password-was-wrong;
+    in property <bool> name-unknown;
+}
+
+export global Do {
+    callback wake();
+    callback connect-to(index: int);
+    callback forget(index: int);
+    callback connect-address(address: string);
+    callback cancel-connecting();
+    callback disconnect();
+    callback look-into(index: int);
+    callback look-into-new-room();
+    callback enter-room(name: string, password: string);
+    callback open-room(name: string, password: string, seats: Seats);
+    callback set-room-password(password: string);
+    callback remove-room-password();
+    callback set-room-seats(seats: Seats);
+    callback make-host(id: int);
+    callback kick(id: int);
+    callback leave-room();
+    callback toggle-mute();
+    callback toggle-deafen();
+    callback toggle-share();
+    callback pick-share-tab(tab: ShareTab);
+    callback pick-source(id: int);
+    callback share-source(id: int);
+    callback change-share();
+    callback cancel-sharing();
+    callback toggle-watch(id: int);
+    callback stop-watching();
+    callback say(text: string);
+    callback copy(text: string);
+    callback dismiss-notice();
+
+    callback set-volume(percent: float);
+    callback set-person-volume(id: int, db: float);
+    callback set-screen-volume(id: int, db: float);
+    callback toggle-screen-mute(id: int);
+    callback volumes-settled();
+
+    callback open-settings(part: SettingsPart);
+    callback turn-settings(part: SettingsPart);
+    callback close-settings();
+
+    callback audio-panel-closed();
+    callback pick-microphone(index: int);
+    callback pick-speaker(index: int);
+    callback toggle-test();
+    callback pick-noise(noise: Noise);
+    callback toggle-auto-level();
+    callback set-mic-gain(db: float);
+    callback pick-resolution(index: int);
+    callback pick-frame-rate(index: int);
+    callback toggle-sounds();
+    callback toggle-sound(index: int);
+    callback play-sound(index: int);
+    callback ask-key(index: int);
+    callback remove-key(index: int);
+    callback reset-key(index: int);
+    callback reset-keys();
+    callback pick-close-to-tray(on: bool);
+    callback pick-appearance(appearance: Appearance);
+    callback rename(name: string);
+    callback pick-animal(index: int);
+
+    callback answer-trust(accept: bool);
+    callback answer-password(password: string);
+    callback refuse-password();
+    callback close-version();
+
+    callback set-full-screen(on: bool);
+    callback open-link(url: string);
+    callback hide-preview(line: int, url: string);
+
+    pure callback face-of(name: string, animal: string) -> Face;
+    pure callback loudness(db: float) -> string;
+    pure callback percentage(percent: float) -> string;
+}
