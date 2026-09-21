@@ -1,0 +1,196 @@
+import { Palette } from "std-widgets.slint";
+
+export struct Colours {
+    window: color,
+    link: color,
+    surface: color,
+    raised: color,
+    raised-hover: color,
+    line: color,
+    edge: color,
+    text: color,
+    text-dim: color,
+    text-faint: color,
+    good: color,
+    bad: color,
+    warn: color,
+    gold: color,
+    scrim: color,
+    toast: color,
+    menu: color,
+    menu-hover: color,
+    sketch-line: color,
+    scroll-thumb: color,
+    scroll-thumb-hover: color,
+}
+
+export global Theme {
+    in-out property <ColorScheme> scheme <=> Palette.color-scheme;
+
+    out property <bool> dark: scheme == ColorScheme.dark;
+
+    out property <Colours> light-colours: {
+        window: #f5f5f7,
+        link: #0066cc,
+        surface: #ffffff,
+        raised: #ececf0,
+        raised-hover: #e2e2e8,
+        line: #dedee3,
+        edge: #dedee3,
+        text: #1d1d1f,
+        text-dim: #636366,
+        text-faint: #86868b,
+        good: #248a3d,
+        bad: #d70015,
+        warn: #b35c00,
+        gold: #9c7500,
+        scrim: #00000047,
+        toast: #1d1d1f,
+        menu: #ffffff,
+        menu-hover: #ececf0,
+        sketch-line: #d6d6db,
+        scroll-thumb: #c7c7cc,
+        scroll-thumb-hover: #a1a1a6,
+    };
+    out property <Colours> dark-colours: {
+        window: #0e0f11,
+        link: #4fa3ff,
+        surface: #16171b,
+        raised: #1f2126,
+        raised-hover: #292b32,
+        line: #26282f,
+        edge: #3a3c43,
+        text: #ecedf0,
+        text-dim: #9a9ea8,
+        text-faint: #7a7e87,
+        good: #34c759,
+        bad: #ff453a,
+        warn: #ff9f0a,
+        gold: #ffd60a,
+        scrim: #00000085,
+        toast: #2c2e35,
+        menu: #26282e,
+        menu-hover: #32343c,
+        sketch-line: #3a3c43,
+        scroll-thumb: #3a3c43,
+        scroll-thumb-hover: #565963,
+    };
+    property <Colours> colours: dark ? dark-colours : light-colours;
+
+    out property <color> window: colours.window;
+    out property <color> link: colours.link;
+    out property <color> surface: colours.surface;
+    out property <color> raised: colours.raised;
+    out property <color> raised-hover: colours.raised-hover;
+    out property <color> line: colours.line;
+    out property <color> edge: colours.edge;
+    out property <color> text: colours.text;
+    out property <color> text-dim: colours.text-dim;
+    out property <color> text-faint: colours.text-faint;
+    out property <color> good: colours.good;
+    out property <color> bad: colours.bad;
+    out property <color> warn: colours.warn;
+    out property <color> gold: colours.gold;
+    out property <color> scrim: colours.scrim;
+    out property <color> toast: colours.toast;
+    out property <color> menu: colours.menu;
+    out property <color> menu-hover: colours.menu-hover;
+    out property <color> scroll-thumb: colours.scroll-thumb;
+    out property <color> scroll-thumb-hover: colours.scroll-thumb-hover;
+    out property <color> accent: #ff0054;
+    out property <color> app-tile: #1e2433;
+    out property <color> on-accent: #ffffff;
+    out property <color> good-fill: #248a3d;
+    out property <color> bad-fill: #d70015;
+    out property <color> knob: #ffffff;
+    out property <color> knob-shadow: #00000040;
+    out property <color> thumb-shadow: #00000055;
+    out property <[color]> sketch-faces: [#5bb8c4, #8a6ad0];
+    out property <[color]> avatars: [#c34e4e, #aa6244, #916e3a, #367f87, #407aa1, #4f72c4, #6652cc, #9952cc, #b548b5, #be4c85];
+
+    out property <color> lift-shadow: #00000029;
+    out property <length> lift-blur: 16px;
+    out property <length> lift-offset: 4px;
+    out property <color> sheet-shadow: #00000040;
+    out property <length> sheet-blur: 28px;
+    out property <length> sheet-offset: 10px;
+
+    out property <color> stage: #000000;
+    out property <color> on-stage: #ffffff;
+    out property <color> on-stage-dim: #ffffffb3;
+    out property <color> on-stage-faint: #ffffff99;
+    out property <color> on-stage-quiet: #ffffff8a;
+    out property <color> on-stage-empty: #ffffff80;
+    out property <color> stage-card: #ffffff12;
+    out property <color> stage-card-lit: #ffffff1f;
+    out property <color> stage-shelf: #ffffff14;
+    out property <color> stage-shelf-lit: #ffffff26;
+    out property <color> stage-edge: #ffffff26;
+    out property <color> stage-edge-lit: #ffffff3d;
+    out property <color> stage-button: #ffffff1f;
+    out property <color> stage-button-lit: #ffffff2e;
+    out property <color> stage-plate: #000000a6;
+    out property <color> stage-bar: #000000b8;
+
+    out property <length> radius: 10px;
+    out property <length> radius-small: 7px;
+    out property <length> radius-tiny: 5px;
+    out property <length> radius-large: 14px;
+    out property <length> sidebar: 292px;
+    out property <length> popover: 268px;
+    out property <length> tip-gap: 6px;
+    out property <length> sheet-narrow: 400px;
+    out property <length> sheet-medium: 560px;
+    out property <length> sheet-wide: 760px;
+
+    out property <length> control-large: 40px;
+    out property <length> control: 36px;
+    out property <length> control-small: 32px;
+    out property <length> control-compact: 28px;
+    out property <length> tool: 44px;
+    out property <length> row: 36px;
+    out property <length> focus-ring: 2px;
+    out property <length> scroll-gutter: 12px;
+    out property <length> scroll-thumb-width: 6px;
+    out property <length> scroll-thumb-least: 28px;
+    out property <length> chat-avatar: 36px;
+    out property <length> card-avatar: 40px;
+    out property <length> chat-card: 432px;
+    out property <length> embed-thumb: 80px;
+
+    out property <length> icon-mark: 14px;
+    out property <length> icon-small: 16px;
+    out property <length> icon: 18px;
+    out property <length> icon-tool: 22px;
+
+    out property <length> space-xxs: 2px;
+    out property <length> space-xs: 4px;
+    out property <length> space-s: 8px;
+    out property <length> space-m: 12px;
+    out property <length> space-l: 16px;
+    out property <length> space-xl: 24px;
+    out property <length> space-xxl: 32px;
+
+    out property <length> tiny: 11px;
+    out property <length> small: 12px;
+    out property <length> body: 13.5px;
+    out property <length> title: 16px;
+    out property <length> side-title: 18px;
+    out property <length> figure: 19px;
+    out property <length> large: 24px;
+    out property <length> brand: 30px;
+    out property <string> mono: "Consolas";
+
+    out property <float> disabled: 0.4;
+    out property <float> pressed: 0.75;
+
+    out property <duration> quick: 120ms;
+    out property <duration> fade: 180ms;
+    out property <duration> copied-mark: 1500ms;
+}
+
+export global Avatars {
+    pure public function colour(tint: int) -> color {
+        return Theme.avatars[Math.mod(tint, Theme.avatars.length)];
+    }
+}
