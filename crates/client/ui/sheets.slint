@@ -1,0 +1,609 @@
+import { Theme } from "theme.slint";
+import { Avatar, Button, Caption, FacePicker, Heading, Icon, Icons, Look, NameField, Note, PasswordField, Pressable, Scroller, Segmented, Sheet, Signal, Signals } from "widgets.slint";
+import { Do, Face, PingPoint, Quality, ShareTab, Source, State } from "state.slint";
+
+component SourceCard inherits Pressable {
+    in property <Source> source;
+    in property <bool> window;
+    in property <bool> chosen;
+    in property <length> preview-height;
+    label: source.label;
+    accessible-checkable: true;
+    accessible-checked: root.chosen;
+    border-radius: Theme.radius;
+    border-width: 2px;
+    border-color: root.chosen ? Theme.accent : transparent;
+    background: root.chosen || root.hover ? Theme.raised : transparent;
+    animate background, border-color { duration: Theme.quick; }
+    Rectangle {
+        x: 7px;
+        y: 7px;
+        width: parent.width - 14px;
+        height: root.preview-height;
+        border-radius: Theme.radius-small;
+        background: Theme.stage;
+        clip: true;
+        if source.has-preview && !source.minimized: Image {
+            width: 100%;
+            height: 100%;
+            source: source.preview;
+            image-fit: contain;
+        }
+        if !source.has-preview && !source.minimized: Icon {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            shape: root.window ? Icons.app-window : Icons.screen;
+            colour: Theme.on-stage-empty;
+            size: 32px;
+        }
+        if source.minimized: VerticalLayout {
+            padding: Theme.space-s;
+            spacing: Theme.space-s;
+            alignment: center;
+            HorizontalLayout {
+                alignment: center;
+                if source.has-icon: Image {
+                    width: 32px;
+                    height: 32px;
+                    source: source.icon;
+                    image-fit: contain;
+                }
+                if !source.has-icon: Icon {
+                    shape: Icons.app-window;
+                    colour: Theme.on-stage-empty;
+                    size: 32px;
+                }
+            }
+
+            Text {
+                text: "Minimized. Sharing opens it.";
+                color: Theme.on-stage-dim;
+                font-size: Theme.tiny;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+        }
+    }
+
+    property <length> text-x: source.has-icon ? 36px : 10px;
+    if source.has-icon: Image {
+        x: 10px;
+        y: root.preview-height + 17px;
+        width: 20px;
+        height: 20px;
+        source: source.icon;
+        image-fit: contain;
+    }
+
+    Text {
+        x: root.text-x;
+        y: root.preview-height + 14px;
+        width: parent.width - root.text-x - 10px;
+        text: source.label;
+        accessible-role: none;
+        color: Theme.text;
+        font-size: Theme.small;
+        font-weight: 500;
+        overflow: elide;
+    }
+
+    Text {
+        x: root.text-x;
+        y: root.preview-height + 32px;
+        width: parent.width - root.text-x - 10px;
+        text: source.detail;
+        color: Theme.text-dim;
+        font-size: Theme.tiny;
+        overflow: elide;
+    }
+}
+
+component SourceGrid inherits Rectangle {
+    in property <[Source]> sources;
+    in property <bool> windows;
+    in property <length> across;
+    in property <int> columns;
+    property <length> gap: Theme.space-s;
+    property <length> card-width: (root.across - root.gap * (root.columns - 1)) / root.columns;
+    property <length> preview-height: (root.card-width - 14px) * 0.5625;
+    out property <length> card-height: root.preview-height + 58px;
+    width: root.across;
+    height: Math.ceil(root.sources.length / root.columns) * (root.card-height + root.gap);
+    for source[place] in root.sources: SourceCard {
+        x: Math.mod(place, root.columns) * (root.card-width + root.gap);
+        y: Math.floor(place / root.columns) * (root.card-height + root.gap);
+        animate x, y { duration: Theme.quick; }
+        width: root.card-width;
+        height: root.card-height;
+        source: source;
+        window: root.windows;
+        chosen: State.source-chosen && source.id == State.chosen-source;
+        preview-height: root.preview-height;
+        clicked => {
+            Do.pick-source(source.id);
+        }
+        double-clicked => {
+            Do.share-source(source.id);
+        }
+    }
+}
+
+component SourceList inherits Scroller {
+    in property <[Source]> sources;
+    in property <bool> windows;
+    in property <length> across;
+    in property <int> columns;
+    in property <string> nothing;
+    property <bool> says: State.listing || root.sources.length == 0;
+    label: root.windows ? "Scroll the windows" : "Scroll the screens";
+    preferred-height: grid.height + (root.says ? 2 * Theme.space-l : 0);
+    min-height: min(self.preferred-height, grid.card-height + Theme.space-s);
+    vertical-stretch: 1;
+    VerticalLayout {
+        spacing: Theme.space-s;
+        alignment: start;
+        grid := SourceGrid {
+            sources: root.sources;
+            windows: root.windows;
+            across: root.across;
+            columns: root.columns;
+        }
+
+        if State.listing: Caption {
+            text: "Finding screens and windows...";
+        }
+        if !State.listing && root.sources.length == 0: Caption {
+            text: root.nothing;
+        }
+    }
+}
+
+component ChoiceGroup inherits VerticalLayout {
+    in property <string> title;
+    in property <[string]> choices;
+    in property <int> chosen;
+    callback picked(index: int);
+    spacing: Theme.space-s;
+    Heading {
+        text: root.title;
+    }
+
+    HorizontalLayout {
+        alignment: start;
+        Segmented {
+            label: root.title;
+            choices: root.choices;
+            chosen: root.chosen;
+            picked(index) => {
+                root.picked(index);
+            }
+        }
+    }
+}
+
+export component ShareSheet inherits Sheet {
+    title: State.showing ? "Change what you share" : "Share your screen";
+    sheet-width: Theme.sheet-wide;
+    property <bool> windows: State.share-tab == ShareTab.windows;
+    property <length> across: root.content-width - Theme.scroll-gutter;
+    closed => {
+        Do.cancel-sharing();
+    }
+    confirmed => {
+        if State.source-chosen {
+            Do.share-source(State.chosen-source);
+        }
+    }
+    HorizontalLayout {
+        alignment: center;
+        Segmented {
+            label: "What to share";
+            choices: ["Screens", "Windows"];
+            chosen: root.windows ? 1 : 0;
+            picked(index) => {
+                Do.pick-share-tab(index == 1 ? ShareTab.windows : ShareTab.screens);
+            }
+        }
+    }
+
+    if !root.windows: SourceList {
+        sources: State.screens-offered;
+        across: root.across;
+        columns: 2;
+        nothing: "No screens found.";
+    }
+    if root.windows: SourceList {
+        sources: State.windows-offered;
+        windows: true;
+        across: root.across;
+        columns: root.across >= 600px ? 3 : 2;
+        nothing: "No windows open. Open a program and it appears here.";
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-xl;
+        alignment: start;
+        ChoiceGroup {
+            title: "Resolution";
+            choices: State.resolutions;
+            chosen: State.resolution;
+            picked(index) => {
+                Do.pick-resolution(index);
+            }
+        }
+
+        ChoiceGroup {
+            title: "Frames per second";
+            choices: State.frame-rates;
+            chosen: State.frame-rate;
+            picked(index) => {
+                Do.pick-frame-rate(index);
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-s;
+        Caption {
+            text: !State.source-chosen ? (root.windows ? "Choose a window." : "Choose a screen.") : root.windows ? "With the sound of this program." : "With everything this PC plays, except the voices here.";
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+
+        Button {
+            text: "Cancel";
+            look: Look.quiet;
+            clicked => {
+                Do.cancel-sharing();
+            }
+        }
+
+        Button {
+            text: State.showing ? "Apply" : "Share";
+            look: Look.primary;
+            enabled: State.source-chosen;
+            clicked => {
+                Do.share-source(State.chosen-source);
+            }
+        }
+    }
+}
+
+export component NameSheet inherits Sheet {
+    title: "Set up your profile";
+    closable: false;
+    holds-keys: false;
+    sheet-width: Theme.sheet-narrow;
+
+    property <Face> face: Do.face-of(name.text, State.me.animal);
+
+    function save() {
+        if name.text == "" {
+            return;
+        }
+        Do.rename(name.text);
+        root.closed();
+    }
+    confirmed => {
+        root.save();
+    }
+
+    VerticalLayout {
+        spacing: Theme.space-m;
+        HorizontalLayout {
+            spacing: Theme.space-m;
+            alignment: start;
+            Avatar {
+                size: 48px;
+                face: root.face;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                spacing: Theme.space-xxs;
+                Heading {
+                    text: root.face.name;
+                    overflow: elide;
+                }
+
+                Caption {
+                    text: "This is what the others see.";
+                }
+            }
+        }
+
+        name := NameField {
+            accepted => {
+                root.save();
+            }
+            init => {
+                self.focus-here();
+            }
+        }
+
+        FacePicker {
+            across: 6;
+            biggest: root.height < 600px ? 48px : 64px;
+            face: root.face;
+        }
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        Button {
+            text: "Save";
+            look: Look.primary;
+            enabled: name.text != "";
+            clicked => {
+                root.save();
+            }
+        }
+    }
+}
+
+export component TrustSheet inherits Sheet {
+    title: "This server looks different";
+    closable: false;
+    sheet-width: Theme.sheet-narrow;
+    confirmed => {
+        Do.answer-trust(false);
+    }
+    Caption {
+        text: "\"" + State.ask-server + "\" shows a different certificate from last time. That is expected if the server was installed anew or its data folder was deleted. If not, somebody else may be answering at this address.";
+    }
+
+    Rectangle {
+        height: Theme.control;
+        border-radius: Theme.radius-small;
+        background: Theme.raised;
+        Text {
+            text: State.ask-fingerprint;
+            color: Theme.text;
+            font-size: Theme.small;
+            font-family: Theme.mono;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    Caption {
+        text: "The server prints its certificate fingerprint when it starts: it should begin with these characters.";
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        spacing: Theme.space-s;
+        Button {
+            text: "Trust the new certificate";
+            clicked => {
+                Do.answer-trust(true);
+            }
+        }
+
+        Button {
+            text: "Do not connect";
+            look: Look.primary;
+            clicked => {
+                Do.answer-trust(false);
+            }
+        }
+    }
+}
+
+export component VersionSheet inherits Sheet {
+    title: "Other version";
+    sheet-width: Theme.sheet-narrow;
+    closed => {
+        Do.close-version();
+    }
+    confirmed => {
+        Do.close-version();
+    }
+    Caption {
+        text: State.ask-says;
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        Button {
+            text: "OK";
+            look: Look.primary;
+            clicked => {
+                Do.close-version();
+            }
+        }
+    }
+}
+
+export component PasswordSheet inherits Sheet {
+    title: "Password";
+    sheet-width: Theme.sheet-narrow;
+    holds-keys: false;
+    closed => {
+        Do.refuse-password();
+    }
+    confirmed => {
+        if password.text != "" {
+            Do.answer-password(password.text);
+        }
+    }
+    Caption {
+        text: State.password-was-wrong ? "That was not the password of \"" + State.ask-server + "\". Try again." : "\"" + State.ask-server + "\" asks for a password.";
+        color: State.password-was-wrong ? Theme.bad : Theme.text-dim;
+    }
+
+    password := PasswordField {
+        label: "Password";
+        wrong: State.password-was-wrong;
+        accepted(text) => {
+            if text != "" {
+                Do.answer-password(text);
+            }
+        }
+        init => {
+            self.focus-here();
+        }
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        spacing: Theme.space-s;
+        Button {
+            text: "Cancel";
+            look: Look.quiet;
+            clicked => {
+                Do.refuse-password();
+            }
+        }
+
+        Button {
+            text: "Connect";
+            label: "Connect with this password";
+            look: Look.primary;
+            enabled: password.text != "";
+            clicked => {
+                Do.answer-password(password.text);
+            }
+        }
+    }
+}
+
+component Stat inherits Rectangle {
+    in property <string> value;
+    in property <string> caption;
+    in property <color> tint: Theme.text;
+
+    in property <bool> graded;
+    in property <Quality> quality;
+    height: 64px;
+    min-width: 0px;
+    preferred-width: 1px;
+    horizontal-stretch: 1;
+    border-radius: Theme.radius;
+    background: Theme.raised;
+    VerticalLayout {
+        padding-left: Theme.space-l;
+        padding-right: Theme.space-l;
+        spacing: Theme.space-xxs;
+        alignment: center;
+        HorizontalLayout {
+            spacing: Theme.space-s;
+            alignment: start;
+            if root.graded: VerticalLayout {
+                alignment: center;
+                Signal {
+                    quality: root.quality;
+                    size: 17px;
+                }
+            }
+            Text {
+                text: root.value;
+                color: root.tint;
+                font-size: Theme.figure;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+        }
+
+        Text {
+            text: root.caption;
+            color: Theme.text-dim;
+            font-size: Theme.tiny;
+            overflow: elide;
+        }
+    }
+}
+
+component PingGraph inherits Rectangle {
+    in property <[PingPoint]> points;
+
+    in property <string> top;
+    in property <string> middle;
+    height: 86px;
+    border-radius: Theme.radius;
+    background: Theme.raised;
+
+    property <length> gutter: 54px;
+    property <length> inset: Theme.space-m;
+    property <length> ceiling: 13px;
+    property <length> floor: root.height - 15px;
+    property <length> gap: 2px;
+    property <length> bar: (root.width - root.gutter - root.inset + root.gap) / max(root.points.length, 1) - root.gap;
+    for mark[index] in [root.top, root.middle, "0"]: Rectangle {
+        y: root.ceiling + (root.floor - root.ceiling) * index / 2 - self.height / 2;
+        height: 14px;
+        Note {
+            x: 10px;
+            width: root.gutter - 20px;
+            text: mark;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            height: parent.height;
+        }
+
+        Rectangle {
+            x: root.gutter;
+            y: (parent.height - self.height) / 2;
+            width: root.width - root.gutter - root.inset;
+            height: 1px;
+            background: Theme.line;
+        }
+    }
+
+    for point[index] in root.points: Rectangle {
+        x: root.gutter + index * (root.bar + root.gap);
+        y: root.floor - self.height;
+        width: root.bar;
+        height: (root.floor - root.ceiling) * point.height;
+        border-radius: 1.5px;
+        background: Signals.colour(point.quality);
+    }
+}
+
+export component NumbersSheet inherits Sheet {
+    title: "Connection";
+    sheet-width: Theme.sheet-medium;
+    confirmed => {
+        root.closed();
+    }
+    HorizontalLayout {
+        spacing: Theme.space-s;
+        Stat {
+            value: State.ping;
+            caption: "Round trip";
+            tint: State.ping-quality == Quality.good ? Theme.text : Signals.colour(State.ping-quality);
+        }
+
+        Stat {
+            value: State.loss;
+            caption: State.loss-caption;
+            tint: State.loss-quality == Quality.good ? Theme.text : Signals.colour(State.loss-quality);
+        }
+
+        Stat {
+            value: State.connection;
+            caption: "Overall";
+            tint: Signals.colour(State.quality);
+            graded: true;
+            quality: State.quality;
+        }
+    }
+
+    VerticalLayout {
+        spacing: Theme.space-s;
+        Heading {
+            text: "Round trip, last 30 seconds";
+        }
+
+        PingGraph {
+            points: State.ping-graph;
+            top: State.ping-top;
+            middle: State.ping-middle;
+        }
+    }
+
+    Caption {
+        text: State.server-details;
+    }
+}
