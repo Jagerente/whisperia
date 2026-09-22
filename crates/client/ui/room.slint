@@ -1,0 +1,1958 @@
+import { Theme } from "theme.slint";
+import { Avatar, Button, Caption, Field, Heading, Icon, IconButton, Icons, Link, LockMark, Look, PanelRow, PasswordField, Popover, Pressable, Reading, RoomSize, Scroller, SidebarFoot, SidebarTitle, SidePanel, Signal, Signals, ToolButton, VerticalRule } from "widgets.slint";
+import { AutoGainLine, DecibelSlider, Hearing, LevelMeter, MicGainSlider, MicTestButton, NoiseChoice, SpeakerVolumeSlider } from "audio.slint";
+import { About, ChatLine, Do, Embed, Face, Pointer, Person, Quality, Seats, SettingsPart, Showing, State, Tile, Trouble, TroubleWith } from "state.slint";
+
+component LiveMark inherits Rectangle {
+    width: 40px;
+    height: 20px;
+    border-radius: Theme.radius-tiny;
+    background: Theme.bad-fill;
+    Text {
+        text: "LIVE";
+        color: Theme.on-accent;
+        font-size: Theme.tiny;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component VolumeLine inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> caption;
+    in property <float> db;
+    callback moved(db: float);
+    spacing: Theme.space-s;
+    Caption {
+        text: root.caption;
+        accessible-role: none;
+        wrap: no-wrap;
+        vertical-alignment: center;
+        width: 78px;
+    }
+
+    DecibelSlider {
+        label: root.label;
+        value: root.db;
+        moved(db) => {
+            root.moved(db);
+        }
+    }
+
+    Reading {
+        text: Do.loudness(root.db);
+    }
+}
+
+component PersonMark inherits VerticalLayout {
+    in property <bool> shown;
+    in property <string> shape;
+    in property <string> says;
+    alignment: center;
+    if root.shown: Icon {
+        shape: root.shape;
+        colour: Theme.bad;
+        size: Theme.icon-small;
+        accessible-role: text;
+        accessible-label: root.says;
+    }
+}
+
+enum Asking { nothing, crown, kick }
+
+component PersonControls inherits VerticalLayout {
+    in property <Person> person;
+    property <Asking> asking;
+    spacing: Theme.space-s;
+    VolumeLine {
+        label: "Volume of " + person.face.name;
+        caption: "Voice";
+        db: person.volume;
+        moved(db) => {
+            Do.set-person-volume(person.id, db);
+        }
+    }
+
+    if person.watched && person.screen-has-sound: VolumeLine {
+        label: "Volume of " + person.face.name + "'s screen";
+        caption: "Their screen";
+        db: person.screen-volume;
+        moved(db) => {
+            Do.set-screen-volume(person.id, db);
+        }
+    }
+
+    if State.hosting && root.asking == Asking.nothing: HorizontalLayout {
+        padding-top: Theme.space-xxs;
+        spacing: Theme.space-s;
+        alignment: start;
+        Button {
+            text: "Make host";
+            label: "Make " + person.face.name + " the host";
+            compact: true;
+            clicked => {
+                root.asking = Asking.crown;
+            }
+        }
+
+        Button {
+            text: "Kick";
+            label: "Kick " + person.face.name + " from the room";
+            compact: true;
+            clicked => {
+                root.asking = Asking.kick;
+            }
+        }
+    }
+    if State.hosting && root.asking != Asking.nothing: VerticalLayout {
+        padding-top: Theme.space-xxs;
+        spacing: Theme.space-s;
+        Caption {
+            text: root.asking == Asking.kick ? "Kick " + person.face.name + "? They can come back unless the room asks for a password." : "Make " + person.face.name + " the host? Only they can hand it back.";
+        }
+
+        HorizontalLayout {
+            spacing: Theme.space-s;
+            alignment: start;
+            Button {
+                text: "Cancel";
+                label: root.asking == Asking.kick ? "Keep " + person.face.name + " in the room" : "Keep the crown";
+                look: Look.quiet;
+                compact: true;
+                clicked => {
+                    root.asking = Asking.nothing;
+                }
+            }
+
+            Button {
+                text: root.asking == Asking.kick ? "Kick" : "Make host";
+                label: root.asking == Asking.kick ? "Kick " + person.face.name : "Hand the crown to " + person.face.name;
+                look: root.asking == Asking.kick ? Look.danger : Look.primary;
+                compact: true;
+                clicked => {
+                    if root.asking == Asking.kick {
+                        Do.kick(person.id);
+                    } else {
+                        Do.make-host(person.id);
+                    }
+                    root.asking = Asking.nothing;
+                }
+            }
+        }
+    }
+}
+
+component PersonRow inherits Rectangle {
+    in property <Person> person;
+    in property <bool> open;
+    callback pressed();
+    callback watch();
+    border-radius: Theme.radius;
+    border-width: root.open ? 1px : 0;
+    border-color: Theme.edge;
+    background: root.open ? Theme.surface : head.hover ? Theme.raised : transparent;
+    animate background { duration: Theme.quick; }
+    VerticalLayout {
+        head := Pressable {
+            label: person.me ? person.face.name + " (you)" : person.face.name;
+            enabled: !person.me;
+            height: 46px;
+            clicked => {
+                root.pressed();
+            }
+            HorizontalLayout {
+                padding-left: Theme.space-s;
+                padding-right: Theme.space-s;
+                spacing: Theme.space-s;
+                VerticalLayout {
+                    alignment: center;
+                    Avatar {
+                        face: person.face;
+                        talking: person.talking;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: Theme.space-xxs;
+                    horizontal-stretch: 1;
+                    HorizontalLayout {
+                        spacing: Theme.space-s;
+                        Text {
+                            text: person.face.name;
+                            color: Theme.text;
+                            font-size: Theme.body;
+                            font-weight: 500;
+                            horizontal-stretch: 0;
+                            overflow: elide;
+                        }
+
+                        if person.host: VerticalLayout {
+                            alignment: center;
+                            Icon {
+                                shape: Icons.crown;
+                                colour: Theme.gold;
+                                size: Theme.icon-mark;
+                                accessible-role: text;
+                                accessible-label: person.face.name + " is the host";
+                            }
+                        }
+
+                        if person.me: Text {
+                            text: "you";
+                            color: Theme.text-faint;
+                            font-size: Theme.small;
+                            vertical-alignment: center;
+                        }
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
+                    }
+
+                    if !person.me && person.volume != 0 && !root.open: Text {
+                        text: Do.loudness(person.volume);
+                        color: Theme.text-dim;
+                        font-size: Theme.tiny;
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.space-xs;
+                    alignment: end;
+                    horizontal-stretch: 0;
+                    PersonMark {
+                        shown: person.watches-me;
+                        shape: Icons.eye;
+                        says: person.face.name + " watches your screen";
+                    }
+
+                    PersonMark {
+                        shown: person.deafened;
+                        shape: Icons.sound-off;
+                        says: person.face.name + " is deafened";
+                    }
+
+                    PersonMark {
+                        shown: person.muted;
+                        shape: Icons.mic-off;
+                        says: person.face.name + " is muted";
+                    }
+
+                    if person.showing: VerticalLayout {
+                        alignment: center;
+                        if person.me || person.watched: LiveMark { }
+                        if !person.me && !person.watched: mark := Pressable {
+                            label: "Watch " + person.face.name + "'s screen";
+                            tip: "Watch";
+                            tip-align: right;
+                            width: 40px;
+                            height: Theme.control-compact;
+                            opacity: self.down ? Theme.pressed : 1;
+                            clicked => {
+                                root.watch();
+                            }
+                            LiveMark {
+                                y: (parent.height - self.height) / 2;
+                                opacity: mark.hover ? 0.82 : 1;
+                                animate opacity { duration: Theme.quick; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if root.open && !person.me: PersonControls {
+            padding-left: Theme.space-m;
+            padding-right: Theme.space-m;
+            padding-bottom: Theme.space-m;
+            person: person;
+        }
+    }
+}
+
+component ConnectionPill inherits Pressable {
+    label: "Connection details";
+    tip: "Connection";
+    height: Theme.control-compact;
+    width: delay.preferred-width + 39px;
+    horizontal-stretch: 0;
+    border-radius: Theme.radius-small;
+    background: root.hover ? Theme.raised : transparent;
+    animate background { duration: Theme.quick; }
+    HorizontalLayout {
+        padding-left: Theme.space-s;
+        padding-right: Theme.space-s;
+        spacing: Theme.space-s;
+        VerticalLayout {
+            alignment: center;
+            Signal {
+                quality: State.quality;
+                accessible-role: text;
+                accessible-label: State.connection + " connection";
+            }
+        }
+
+        delay := Text {
+            text: State.ping;
+            color: State.quality == Quality.good ? Theme.text-dim : Signals.colour(State.quality);
+            font-size: Theme.small;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component AudioPanel inherits Popover {
+    title: "Audio";
+    PanelRow {
+        name: "Microphone test";
+        value: Hearing.test-said;
+        value-colour: Hearing.test-colour;
+        HorizontalLayout {
+            spacing: Theme.space-s;
+            MicTestButton {
+                compact: true;
+            }
+
+            LevelMeter {
+                horizontal-stretch: 1;
+            }
+        }
+    }
+
+    PanelRow {
+        name: "Microphone gain";
+        value: Hearing.gain-said;
+        MicGainSlider { }
+    }
+
+    AutoGainLine {
+        text: "Automatic gain control";
+        font-size: Theme.small;
+    }
+
+    PanelRow {
+        name: "Noise suppression";
+        HorizontalLayout {
+            alignment: start;
+            NoiseChoice { }
+        }
+    }
+
+    PanelRow {
+        name: "Speaker volume";
+        value: Do.percentage(State.volume-percent);
+        SpeakerVolumeSlider { }
+    }
+}
+
+component RoomPanel inherits Popover {
+    title: "Room";
+    property <bool> dragging;
+    property <Seats> dragged;
+    property <Seats> seats: root.dragging ? root.dragged : State.room-seats;
+
+    function drop-password() {
+        password.clear();
+        password.let-go();
+    }
+    card-pressed => {
+        root.drop-password();
+    }
+
+    VerticalLayout {
+        spacing: Theme.space-s;
+        HorizontalLayout {
+            spacing: Theme.space-s;
+            VerticalLayout {
+                alignment: center;
+                LockMark {
+                    locked: State.room-locked;
+                    size: Theme.icon-small;
+                    accessible-label: State.room-locked ? "The room asks for a password" : "The room has no password";
+                }
+            }
+
+            Text {
+                text: "Password";
+                color: Theme.text;
+                font-size: Theme.small;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+
+            if State.room-locked: Link {
+                text: "Remove";
+                label: "Remove the password";
+                clicked => {
+                    root.drop-password();
+                    Do.remove-room-password();
+                }
+            }
+        }
+
+        password := PasswordField {
+            label: "Room password";
+            placeholder: State.room-locked ? "New password" : "No password";
+            hint: password.text != "" ? "Enter" : "";
+            accepted(text) => {
+                if text != "" {
+                    Do.set-room-password(text);
+                }
+                root.drop-password();
+            }
+            backed-out => {
+                if password.text == "" {
+                    return false;
+                }
+                password.clear();
+                return true;
+            }
+            left => {
+                password.clear();
+            }
+        }
+    }
+
+    PanelRow {
+        name: "Room size";
+        RoomSize {
+            label: "Room size";
+            seats: root.seats;
+            moved(seats) => {
+                root.drop-password();
+                root.dragging = true;
+                root.dragged = seats;
+            }
+            released => {
+                if root.dragging {
+                    Do.set-room-seats(root.dragged);
+                }
+                root.dragging = false;
+            }
+        }
+    }
+}
+
+component CardHead inherits HorizontalLayout {
+    in property <Face> face;
+    in property <bool> talking;
+    in property <bool> host;
+    in property <bool> showing;
+    in property <string> status;
+    in property <color> status-colour;
+    spacing: Theme.space-s;
+    VerticalLayout {
+        alignment: center;
+        Avatar {
+            face: root.face;
+            talking: root.talking;
+            size: Theme.card-avatar;
+        }
+    }
+
+    VerticalLayout {
+        alignment: center;
+        horizontal-stretch: 1;
+        HorizontalLayout {
+            spacing: Theme.space-s;
+            Heading {
+                text: root.face.name;
+                horizontal-stretch: 0;
+                overflow: elide;
+            }
+
+            if root.host: VerticalLayout {
+                alignment: center;
+                Icon {
+                    shape: Icons.crown;
+                    colour: Theme.gold;
+                    size: Theme.icon-mark;
+                    accessible-role: text;
+                    accessible-label: "Host";
+                }
+            }
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+
+            if root.showing: VerticalLayout {
+                alignment: center;
+                LiveMark { }
+            }
+        }
+
+        Text {
+            text: root.status;
+            color: root.status-colour;
+            font-size: Theme.tiny;
+            wrap: word-wrap;
+        }
+    }
+}
+
+component PersonCardBody inherits VerticalLayout {
+    in property <Person> person;
+    callback watch(id: int);
+    callback edit-profile();
+    spacing: Theme.space-s;
+    CardHead {
+        face: person.face;
+        talking: person.talking;
+        host: person.host;
+        showing: person.showing;
+        status: person.deafened ? "Deafened" : person.muted ? "Muted" : person.talking ? "Talking" : "In the room";
+        status-colour: person.deafened || person.muted ? Theme.bad : person.talking ? Theme.good : Theme.text-dim;
+    }
+
+    if person.me: HorizontalLayout {
+        alignment: start;
+        Button {
+            text: "Edit profile";
+            shape: Icons.edit;
+            compact: true;
+            clicked => {
+                root.edit-profile();
+            }
+        }
+    }
+    if !person.me && person.showing && !person.watched: HorizontalLayout {
+        alignment: start;
+        Button {
+            text: "Watch screen";
+            label: "Watch the screen of " + person.face.name;
+            shape: Icons.screen;
+            compact: true;
+            clicked => {
+                root.watch(person.id);
+            }
+        }
+    }
+    if !person.me: PersonControls {
+        person: person;
+    }
+}
+
+component PersonCard inherits Popover {
+    compact: true;
+    in property <int> number;
+    callback watch(id: int);
+    callback edit-profile();
+    VerticalLayout {
+        for line in State.chat: VerticalLayout {
+            if line.number == root.number && !line.here: CardHead {
+                face: line.face;
+                status: "Not in the room any more";
+                status-colour: Theme.text-dim;
+            }
+            if line.number == root.number && line.here: VerticalLayout {
+                for person in State.people: VerticalLayout {
+                    if person.id == line.sender: PersonCardBody {
+                        person: person;
+                        watch(id) => {
+                            root.watch(id);
+                        }
+                        edit-profile => {
+                            root.edit-profile();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component TroubleCard inherits Rectangle {
+    in property <Trouble> trouble;
+    callback settings();
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.edge;
+    background: Theme.surface;
+    HorizontalLayout {
+        padding: Theme.space-m;
+        spacing: Theme.space-m;
+        VerticalLayout {
+            alignment: start;
+            Icon {
+                shape: root.trouble.device == TroubleWith.microphone ? Icons.mic-off : root.trouble.device == TroubleWith.speakers ? Icons.sound-off : Icons.volume-off;
+                colour: Theme.warn;
+                size: 20px;
+            }
+        }
+
+        VerticalLayout {
+            spacing: Theme.space-xxs;
+            horizontal-stretch: 1;
+            Heading {
+                text: root.trouble.title;
+                wrap: word-wrap;
+            }
+
+            Caption {
+                text: root.trouble.caption;
+            }
+
+            if root.trouble.button != "": HorizontalLayout {
+                padding-top: Theme.space-s;
+                alignment: start;
+                Button {
+                    text: root.trouble.button;
+                    label: root.trouble.button-label;
+                    clicked => {
+                        root.settings();
+                    }
+                }
+            }
+        }
+    }
+}
+
+enum Looking { nobody, row, card }
+
+component Sidebar inherits SidePanel {
+    in property <int> open-person;
+    callback toggle-person(id: int);
+    callback settings();
+    callback audio-settings();
+    callback numbers();
+    callback tune();
+    callback host();
+    callback watch(id: int);
+    VerticalLayout {
+        HorizontalLayout {
+            padding: Theme.space-l;
+            padding-left: Theme.space-s + Theme.space-m;
+            padding-right: Theme.space-m;
+            padding-bottom: Theme.space-m;
+            spacing: Theme.space-s;
+            SidebarTitle {
+                title: State.room-name;
+                subtitle: State.server-name;
+            }
+
+            if State.hosting: VerticalLayout {
+                alignment: center;
+                IconButton {
+                    label: "Room settings";
+                    tip: "Room settings";
+                    tip-below: true;
+                    tip-align: right;
+                    shape: Icons.more;
+                    size: 32px;
+                    clicked => {
+                        root.host();
+                    }
+                }
+            }
+        }
+
+        Scroller {
+            label: "Scroll the people";
+            vertical-stretch: 1;
+            VerticalLayout {
+                padding-left: Theme.space-s;
+                padding-right: Theme.space-s;
+                spacing: Theme.space-xxs;
+                alignment: start;
+                for person in State.people: PersonRow {
+                    person: person;
+                    open: root.open-person == person.id && !person.me;
+                    pressed => {
+                        root.toggle-person(person.id);
+                    }
+                    watch => {
+                        root.watch(person.id);
+                    }
+                }
+            }
+        }
+
+        for trouble in State.audio-troubles: VerticalLayout {
+            padding-left: Theme.space-m;
+            padding-right: Theme.space-m;
+            padding-bottom: Theme.space-m;
+            TroubleCard {
+                trouble: trouble;
+                settings => {
+                    root.audio-settings();
+                }
+            }
+        }
+
+        SidebarFoot {
+            HorizontalLayout {
+                padding-left: Theme.space-xs;
+                padding-right: Theme.space-xs;
+                height: Theme.control-compact;
+                spacing: Theme.space-s;
+                if State.ping != "": ConnectionPill {
+                    clicked => {
+                        root.numbers();
+                    }
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+
+                IconButton {
+                    label: "Quick audio settings";
+                    tip: "Audio";
+                    shape: Icons.sliders;
+                    size: Theme.control-compact;
+                    clicked => {
+                        root.tune();
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                alignment: space-between;
+                ToolButton {
+                    property <bool> silent: State.muted || State.deafened || State.testing;
+                    label: self.silent ? "Unmute microphone" : "Mute microphone";
+                    tip: self.silent ? "Unmute" : "Mute";
+                    shape: self.silent ? Icons.mic-off : Icons.mic;
+                    alarming: self.silent;
+                    clicked => {
+                        Do.toggle-mute();
+                    }
+                }
+
+                ToolButton {
+                    property <bool> deaf: State.deafened || State.testing;
+                    label: self.deaf ? "Undeafen" : "Deafen";
+                    tip: self.deaf ? "Undeafen" : "Deafen";
+                    shape: self.deaf ? Icons.sound-off : Icons.sound;
+                    alarming: self.deaf;
+                    clicked => {
+                        Do.toggle-deafen();
+                    }
+                }
+
+                ToolButton {
+                    label: State.showing ? "Stop sharing my screen" : "Share my screen";
+                    tip: State.showing ? "Stop sharing" : "Share screen";
+                    shape: State.showing ? Icons.screen-off : Icons.screen;
+                    alarming: State.showing;
+                    alarm: Theme.good-fill;
+                    clicked => {
+                        Do.toggle-share();
+                    }
+                }
+
+                ToolButton {
+                    label: "Settings";
+                    tip: "Settings";
+                    shape: Icons.settings;
+                    clicked => {
+                        root.settings();
+                    }
+                }
+
+                ToolButton {
+                    label: "Leave the room";
+                    tip: "Leave";
+                    shape: Icons.leave;
+                    clicked => {
+                        Do.leave-room();
+                    }
+                }
+            }
+        }
+    }
+}
+
+component NoteLine inherits HorizontalLayout {
+    in property <ChatLine> line;
+    property <string> shape: line.about == About.joined ? Icons.person-plus
+        : line.about == About.left ? Icons.leave
+        : line.about == About.kicked ? Icons.close
+        : line.about == About.host ? Icons.crown
+        : line.about == About.locked ? Icons.lock
+        : line.about == About.unlocked ? Icons.unlock
+        : line.about == About.size ? Icons.person
+        : line.about == About.sharing ? Icons.screen
+        : line.about == About.stopped-sharing ? Icons.screen-off
+        : Icons.edit;
+    property <color> tint: line.about == About.joined || line.about == About.sharing ? Theme.good
+        : line.about == About.kicked ? Theme.bad
+        : line.about == About.host ? Theme.gold
+        : Theme.text-dim;
+    alignment: start;
+    padding-left: Theme.space-l;
+    padding-right: Theme.space-l;
+    padding-top: Theme.space-m;
+    padding-bottom: Theme.space-xxs;
+    spacing: Theme.space-m;
+    Rectangle {
+        width: Theme.chat-avatar;
+        Icon {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            shape: root.shape;
+            colour: root.tint;
+            size: Theme.icon-small;
+        }
+    }
+
+    Text {
+        text: line.text;
+        color: Theme.text-dim;
+        font-size: Theme.body;
+        vertical-alignment: center;
+        wrap: word-wrap;
+    }
+
+    Text {
+        text: line.time;
+        color: Theme.text-faint;
+        font-size: Theme.tiny;
+        vertical-alignment: center;
+    }
+}
+
+component EmbedTitle inherits Rectangle {
+    in property <string> text;
+    in property <string> url;
+    min-height: words.min-height;
+    preferred-height: words.preferred-height;
+    opacity: open.down ? Theme.pressed : 1;
+    words := StyledText {
+        width: 100%;
+        text: open.hover ? @markdown("<u>**\{root.text}**</u>") : @markdown("**\{root.text}**");
+        default-color: Theme.link;
+        default-font-size: Theme.body;
+        accessible-role: none;
+    }
+
+    open := Pressable {
+        width: 100%;
+        height: 100%;
+        label: "Open " + root.url;
+        clicked => {
+            Do.open-link(root.url);
+        }
+    }
+}
+
+component EmbedPicture inherits Rectangle {
+    in property <image> picture;
+    in property <length> most-width;
+    property <float> shape: root.picture.height / max(1, root.picture.width);
+    width: min(root.picture.width * 1px, root.most-width);
+    height: self.width * root.shape;
+    border-radius: Theme.radius-small;
+    clip: true;
+    Image {
+        width: 100%;
+        height: 100%;
+        source: root.picture;
+        image-fit: cover;
+        accessible-role: none;
+    }
+}
+
+component EmbedCard inherits Rectangle {
+    in property <int> line;
+    in property <Embed> embed;
+    property <length> bar: Theme.space-xs;
+    preferred-width: Theme.chat-card;
+    max-width: Theme.chat-card;
+    min-height: card.min-height;
+    preferred-height: card.preferred-height;
+    border-radius: Theme.radius-small;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.line;
+    clip: true;
+    accessible-role: groupbox;
+    accessible-label: "Preview of " + root.embed.url;
+    hovered := TouchArea {
+        card := HorizontalLayout {
+            padding-left: root.bar + Theme.space-m;
+            padding-right: Theme.space-m;
+            padding-top: Theme.space-m;
+            padding-bottom: Theme.space-m;
+            spacing: Theme.space-m;
+            VerticalLayout {
+                spacing: Theme.space-xs;
+                horizontal-stretch: 1;
+                Text {
+                    text: root.embed.site;
+                    color: Theme.text-dim;
+                    font-size: Theme.tiny;
+                    overflow: elide;
+                }
+
+                if root.embed.title != "": EmbedTitle {
+                    text: root.embed.title;
+                    url: root.embed.url;
+                }
+
+                if root.embed.description != "": Text {
+                    text: root.embed.description;
+                    color: Theme.text-dim;
+                    font-size: Theme.small;
+                    wrap: word-wrap;
+                    overflow: elide;
+                    max-height: 4 * Theme.small * 1.35;
+                }
+
+                if root.embed.has-picture && root.embed.wide: VerticalLayout {
+                    padding-top: Theme.space-xs;
+                    EmbedPicture {
+                        picture: root.embed.picture;
+                        most-width: Theme.chat-card - root.bar - 2 * Theme.space-m;
+                    }
+                }
+            }
+
+            if root.embed.has-picture && !root.embed.wide: VerticalLayout {
+                alignment: start;
+                Rectangle {
+                    width: Theme.embed-thumb;
+                    height: Theme.embed-thumb;
+                    border-radius: Theme.radius-small;
+                    clip: true;
+                    Image {
+                        width: 100%;
+                        height: 100%;
+                        source: root.embed.picture;
+                        image-fit: cover;
+                        accessible-role: none;
+                    }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        x: 0;
+        width: root.bar;
+        height: parent.height;
+        background: root.embed.has-colour ? root.embed.colour : Theme.edge;
+    }
+
+    IconButton {
+        x: parent.width - self.width - Theme.space-xs;
+        y: Theme.space-xs;
+        size: Theme.control-compact - Theme.space-xs;
+        label: "Hide the preview of " + root.embed.url;
+        tip: "Hide the preview";
+        shape: Icons.close;
+        plate: Theme.surface;
+        opacity: hovered.has-hover || self.hover || self.keyed ? 1 : 0;
+        animate opacity { duration: Theme.quick; }
+        clicked => {
+            Do.hide-preview(root.line, root.embed.url);
+        }
+    }
+}
+
+component SaidLine inherits Rectangle {
+    in property <ChatLine> line;
+    property <bool> copied;
+    callback show-sender(x: length, y: length);
+    function show() {
+        root.show-sender(root.absolute-position.x + Theme.space-l + Theme.chat-avatar, root.absolute-position.y + Theme.space-m + Theme.space-xxs);
+    }
+    min-height: row.min-height;
+    preferred-height: row.preferred-height;
+    touch := TouchArea {
+        row := HorizontalLayout {
+            padding-left: Theme.space-l;
+            padding-right: Theme.space-l;
+            padding-top: line.head ? Theme.space-m : Theme.space-xxs;
+            padding-bottom: Theme.space-xxs;
+            spacing: Theme.space-m;
+            Rectangle {
+                width: Theme.chat-avatar;
+                if line.head: Pressable {
+                    x: 0;
+                    y: Theme.space-xxs;
+                    width: Theme.chat-avatar;
+                    height: Theme.chat-avatar;
+                    label: line.face.name + ", " + line.time;
+                    border-radius: self.width / 2;
+                    background: self.hover ? Theme.raised : transparent;
+                    opacity: self.down ? Theme.pressed : 1;
+                    animate background { duration: Theme.quick; }
+                    clicked => {
+                        root.show();
+                    }
+                    Avatar {
+                        face: line.face;
+                        size: Theme.chat-avatar;
+                    }
+                }
+                if !line.head && touch.has-hover: Text {
+                    y: Theme.space-xxs;
+                    width: parent.width;
+                    text: line.time;
+                    color: Theme.text-faint;
+                    font-size: Theme.tiny;
+                    horizontal-alignment: center;
+                }
+            }
+
+            VerticalLayout {
+                spacing: Theme.space-xxs;
+                if line.head: HorizontalLayout {
+                    spacing: Theme.space-s;
+                    alignment: start;
+                    Rectangle {
+                        min-width: Theme.space-xl;
+                        preferred-width: name.preferred-width;
+                        height: name.preferred-height;
+                        horizontal-stretch: 0;
+                        name := Text {
+                            width: 100%;
+                            text: line.face.name;
+                            color: Theme.text;
+                            font-size: Theme.body;
+                            font-weight: 600;
+                            overflow: elide;
+                        }
+
+                        Rectangle {
+                            y: parent.height - 2px;
+                            width: min(name.preferred-width, parent.width);
+                            height: 1px;
+                            background: Theme.text;
+                            opacity: name-touch.has-hover ? 1 : 0;
+                            animate opacity { duration: Theme.quick; }
+                        }
+
+                        name-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.show();
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: line.time;
+                        color: Theme.text-faint;
+                        font-size: Theme.tiny;
+                        vertical-alignment: center;
+                    }
+                }
+                StyledText {
+                    min-width: 0;
+                    text: line.styled;
+                    default-color: Theme.text;
+                    default-font-size: Theme.body;
+                    link-color: Theme.link;
+                    accessible-role: text;
+                    accessible-label: line.text;
+                    link-clicked(url) => {
+                        Do.open-link(url);
+                    }
+                }
+
+                for embed in line.embeds: HorizontalLayout {
+                    alignment: start;
+                    padding-top: Theme.space-xs;
+                    EmbedCard {
+                        line: line.number;
+                        embed: embed;
+                    }
+                }
+            }
+
+            VerticalLayout {
+                alignment: start;
+                copy := IconButton {
+                    size: Theme.control-compact;
+                    label: "Copy the message: " + line.text;
+                    tip: root.copied ? "Copied" : "Copy message";
+                    tip-align: right;
+                    shape: root.copied ? Icons.check : Icons.copy;
+                    opacity: touch.has-hover || self.keyed || root.copied ? 1 : 0;
+                    animate opacity { duration: Theme.quick; }
+                    clicked => {
+                        Do.copy(line.text);
+                        root.copied = true;
+                    }
+                }
+            }
+        }
+    }
+
+    Timer {
+        interval: Theme.copied-mark;
+        running: root.copied;
+        triggered => {
+            root.copied = false;
+        }
+    }
+}
+
+component NewerButton inherits Pressable {
+    in property <int> count;
+    label: root.count == 1 ? "1 new message" : root.count + " new messages";
+    width: row.preferred-width;
+    height: 30px;
+    border-radius: self.height / 2;
+    background: Theme.accent;
+    opacity: root.down ? Theme.pressed : 1;
+    drop-shadow-color: Theme.lift-shadow;
+    drop-shadow-blur: Theme.lift-blur;
+    drop-shadow-offset-y: Theme.lift-offset;
+    row := HorizontalLayout {
+        padding-left: Theme.space-m;
+        padding-right: Theme.space-m;
+        spacing: Theme.space-xs;
+        Text {
+            text: root.label;
+            accessible-role: none;
+            color: Theme.on-accent;
+            font-size: Theme.small;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                shape: Icons.down;
+                colour: Theme.on-accent;
+                size: Theme.icon-mark;
+            }
+        }
+    }
+}
+
+component Chat inherits Rectangle {
+    in property <bool> narrow;
+    callback let-go();
+    callback show-sender(number: int, x: length, y: length);
+    background: narrow ? Theme.surface : Theme.window;
+    property <length> bottom: min(0px, lines.visible-height - lines.content-height);
+    property <bool> at-bottom: true;
+    property <int> heard: State.chat-heard;
+    property <int> seen;
+    property <int> unseen: max(0, root.heard - root.seen);
+    property <int> left: State.chat-limit - message.text.character-count;
+    init => {
+        root.seen = State.chat-heard;
+    }
+    changed bottom => {
+        if root.at-bottom {
+            lines.content-y = root.bottom;
+        }
+    }
+    changed heard => {
+        if root.at-bottom {
+            root.seen = root.heard;
+        }
+    }
+    changed at-bottom => {
+        if root.at-bottom {
+            root.seen = root.heard;
+        }
+    }
+    function to-newest() {
+        root.at-bottom = true;
+        lines.content-y = root.bottom;
+        root.seen = root.heard;
+    }
+    property <int> presses: Pointer.presses;
+    changed presses => {
+        let x = Pointer.pressed-at.x;
+        let y = Pointer.pressed-at.y;
+        let inside = x >= typing.absolute-position.x && x < typing.absolute-position.x + typing.width && y >= typing.absolute-position.y && y < typing.absolute-position.y + typing.height;
+        if !inside {
+            message.let-go();
+        }
+    }
+    function send() {
+        if message.text != "" {
+            Do.say(message.text);
+            message.clear();
+            root.to-newest();
+        }
+    }
+    VerticalLayout {
+        Rectangle {
+            vertical-stretch: 1;
+            lines := Scroller {
+                label: "Scroll the chat";
+                width: 100%;
+                height: 100%;
+                changed content-y => {
+                    root.at-bottom = self.content-y <= root.bottom + Theme.space-xl;
+                }
+                VerticalLayout {
+                    alignment: end;
+                    padding-top: Theme.space-s;
+                    padding-bottom: Theme.space-s;
+                    for line in State.chat: VerticalLayout {
+                        if line.about == About.said: SaidLine {
+                            line: line;
+                            show-sender(x, y) => {
+                                root.show-sender(line.number, x, y);
+                            }
+                        }
+                        if line.about != About.said: NoteLine {
+                            line: line;
+                        }
+                    }
+                }
+            }
+
+            if State.chat.length == 0: VerticalLayout {
+                alignment: center;
+                spacing: Theme.space-s;
+                HorizontalLayout {
+                    alignment: center;
+                    Icon {
+                        shape: Icons.chat;
+                        colour: Theme.text-faint;
+                        size: 28px;
+                    }
+                }
+
+                Caption {
+                    text: "Messages to the room appear here.";
+                    horizontal-alignment: center;
+                }
+            }
+
+            if root.unseen > 0 && !root.at-bottom: NewerButton {
+                x: (parent.width - self.width) / 2;
+                y: parent.height - self.height - Theme.space-s;
+                count: root.unseen;
+                clicked => {
+                    root.to-newest();
+                }
+            }
+        }
+
+        VerticalLayout {
+            padding-left: Theme.space-l;
+            padding-right: Theme.space-l;
+            padding-bottom: Theme.space-l;
+            padding-top: Theme.space-xs;
+            spacing: Theme.space-s;
+            typing := HorizontalLayout {
+                spacing: Theme.space-s;
+                message := Field {
+                    label: "Message";
+                    placeholder: "Message " + State.room-name;
+                    limit: State.chat-limit;
+                    accepted(text) => {
+                        root.send();
+                    }
+                    backed-out => {
+                        root.let-go();
+                        return true;
+                    }
+                }
+
+                IconButton {
+                    label: "Send";
+                    tip: "Send";
+                    shape: Icons.send;
+                    size: Theme.control;
+                    enabled: message.text != "";
+                    colour: message.text != "" ? Theme.on-accent : Theme.text-dim;
+                    hover-colour: Theme.on-accent;
+                    plate: message.text != "" ? Theme.accent : Theme.raised;
+                    hover-plate: Theme.accent;
+                    clicked => {
+                        root.send();
+                    }
+                }
+            }
+
+            if root.left <= 40: Text {
+                text: root.left == 1 ? "1 character left" : root.left + " characters left";
+                color: root.left <= 0 ? Theme.bad : Theme.text-faint;
+                font-size: Theme.tiny;
+                horizontal-alignment: right;
+            }
+        }
+    }
+}
+
+component StageCard inherits Rectangle {
+    in property <bool> lit;
+    Rectangle {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        width: min(root.width - Theme.space-xl, 420px);
+        height: min(root.height - Theme.space-xl, 320px);
+        border-radius: Theme.radius-large;
+        background: root.lit ? Theme.stage-card-lit : Theme.stage-card;
+        border-width: 1px;
+        border-color: root.lit ? Theme.stage-edge-lit : Theme.stage-edge;
+        animate background, border-color { duration: Theme.quick; }
+        @children
+    }
+}
+
+component StageAvatar inherits HorizontalLayout {
+    in property <Face> face;
+    in property <length> size;
+    alignment: center;
+    Avatar {
+        face: root.face;
+        size: root.size;
+    }
+}
+
+component Poster inherits Rectangle {
+    in property <Tile> tile;
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            Do.toggle-watch(tile.sharer);
+        }
+    }
+
+    StageCard {
+        lit: touch.has-hover || watch.hover;
+        VerticalLayout {
+            padding: Theme.space-l;
+            alignment: center;
+            spacing: Theme.space-m;
+            StageAvatar {
+                face: tile.face;
+                size: 56px;
+            }
+
+            Text {
+                text: tile.face.name + " is sharing their screen";
+                color: Theme.on-stage;
+                font-size: Theme.body;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+
+            if tile.minimized: Text {
+                text: "The window is minimized right now";
+                color: Theme.on-stage-dim;
+                font-size: Theme.small;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+
+            HorizontalLayout {
+                alignment: center;
+                watch := Button {
+                    text: "Watch";
+                    label: "Watch what " + tile.face.name + " shows";
+                    shape: Icons.play;
+                    look: Look.primary;
+                    clicked => {
+                        Do.toggle-watch(tile.sharer);
+                    }
+                }
+            }
+        }
+    }
+}
+
+component MyShare inherits Rectangle {
+    in property <Tile> tile;
+    StageCard {
+        VerticalLayout {
+            padding: Theme.space-l;
+            alignment: center;
+            spacing: Theme.space-s;
+            StageAvatar {
+                face: tile.face;
+                size: 44px;
+            }
+
+            Text {
+                text: "You are sharing";
+                color: Theme.on-stage;
+                font-size: Theme.body;
+                font-weight: 600;
+                horizontal-alignment: center;
+            }
+
+            Text {
+                text: tile.detail;
+                color: Theme.on-stage-dim;
+                font-size: Theme.small;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+
+            if tile.minimized: Text {
+                text: "The window is minimized: the others see its last picture until you open it.";
+                color: Theme.on-stage;
+                font-size: Theme.small;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            HorizontalLayout {
+                padding-top: Theme.space-xs;
+                alignment: center;
+                spacing: Theme.space-s;
+                Button {
+                    text: "Change";
+                    label: "Change what is shared";
+                    look: Look.stage;
+                    clicked => {
+                        Do.change-share();
+                    }
+                }
+
+                Button {
+                    text: "Stop sharing";
+                    look: Look.stage;
+                    clicked => {
+                        Do.toggle-share();
+                    }
+                }
+            }
+        }
+    }
+}
+
+component Gone inherits Rectangle {
+    in property <Tile> tile;
+    Text {
+        width: 100%;
+        height: 100%;
+        text: tile.face.name + " stopped sharing";
+        color: Theme.on-stage-faint;
+        font-size: Theme.body;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component StageButton inherits IconButton {
+    size: 34px;
+    colour: Theme.on-stage;
+    plate: Theme.stage-plate;
+    hover-plate: Theme.stage-button-lit;
+    hover-colour: Theme.on-stage;
+}
+
+component BarButton inherits VerticalLayout {
+    in property <string> label;
+    in property <string> tip;
+    in property <string> shape;
+    callback clicked();
+    alignment: center;
+    IconButton {
+        label: root.label;
+        tip: root.tip;
+        shape: root.shape;
+        colour: Theme.on-stage;
+        hover-plate: Theme.stage-button-lit;
+        hover-colour: Theme.on-stage;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component Screen inherits Rectangle {
+    in property <Tile> tile;
+    property <string> paused-says: tile.face.name + " minimized the window. The picture comes back when it is open.";
+    background: Theme.stage;
+    clip: true;
+    property <bool> controls: touch.has-hover || bar-touch.has-hover;
+    if tile.has-picture: Image {
+        width: 100%;
+        height: 100%;
+        source: tile.picture;
+        image-fit: contain;
+        accessible-role: image;
+        accessible-label: tile.face.name + "'s screen";
+    }
+
+    if !tile.has-picture: VerticalLayout {
+        alignment: center;
+        spacing: Theme.space-m;
+        StageAvatar {
+            face: tile.face;
+            size: 56px;
+        }
+
+        Text {
+            text: tile.minimized ? root.paused-says : "Waiting for " + tile.face.name + "'s picture...";
+            color: Theme.on-stage-faint;
+            font-size: Theme.body;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+    touch := TouchArea {
+        double-clicked => {
+            Do.set-full-screen(!State.full-screen);
+        }
+    }
+
+    if tile.minimized && tile.has-picture: Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height - Theme.tool - 2 * Theme.space-l;
+        width: min(parent.width - Theme.space-xl, paused.preferred-width);
+        height: 30px;
+        border-radius: self.height / 2;
+        background: Theme.stage-bar;
+        paused := HorizontalLayout {
+            padding-left: Theme.space-l;
+            padding-right: Theme.space-l;
+            Text {
+                text: root.paused-says;
+                color: Theme.on-stage;
+                font-size: Theme.small;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+
+    Rectangle {
+        x: Theme.space-m;
+        y: Theme.space-m;
+        width: who.preferred-width + 20px;
+        height: 26px;
+        border-radius: self.height / 2;
+        background: Theme.stage-plate;
+        opacity: root.controls ? 1 : 0;
+        animate opacity { duration: Theme.fade; }
+        who := Text {
+            text: tile.face.name;
+            color: Theme.on-stage;
+            font-size: Theme.small;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height - Theme.space-l;
+        width: min(parent.width - Theme.space-xl, tile.has-sound ? 360px : 96px);
+        height: Theme.tool;
+        border-radius: self.height / 2;
+        background: Theme.stage-bar;
+        opacity: root.controls ? 1 : 0;
+        animate opacity { duration: Theme.fade; }
+
+        bar-touch := TouchArea {
+            HorizontalLayout {
+                padding-left: Theme.space-s;
+                padding-right: Theme.space-s;
+                spacing: Theme.space-s;
+                if tile.has-sound: BarButton {
+                    label: tile.silent ? "Unmute " + tile.face.name + "'s screen" : "Mute " + tile.face.name + "'s screen";
+                    tip: tile.silent ? "Unmute" : "Mute";
+                    shape: tile.silent ? Icons.volume-off : Icons.volume;
+                    clicked => {
+                        Do.toggle-screen-mute(tile.sharer);
+                    }
+                }
+                if tile.has-sound: VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    DecibelSlider {
+                        label: "Volume of " + tile.face.name + "'s screen";
+                        value: tile.volume;
+                        fill: Theme.on-stage;
+                        track: Theme.stage-button-lit;
+                        mark-colour: Theme.on-stage-faint;
+                        moved(db) => {
+                            Do.set-screen-volume(tile.sharer, db);
+                        }
+                    }
+                }
+                BarButton {
+                    label: State.full-screen ? "Leave full screen" : "Full screen";
+                    tip: State.full-screen ? "Leave full screen" : "Full screen";
+                    shape: State.full-screen ? Icons.window : Icons.full-screen;
+                    clicked => {
+                        Do.set-full-screen(!State.full-screen);
+                    }
+                }
+
+                BarButton {
+                    label: "Stop watching " + tile.face.name;
+                    tip: "Stop watching";
+                    shape: Icons.close;
+                    clicked => {
+                        Do.toggle-watch(tile.sharer);
+                    }
+                }
+            }
+        }
+    }
+}
+
+component ShelfCard inherits Rectangle {
+    in property <Tile> tile;
+    width: 152px;
+    height: 58px;
+    horizontal-stretch: 0;
+    border-radius: Theme.radius;
+    background: touch.hover ? Theme.stage-shelf-lit : Theme.stage-shelf;
+    border-width: 1px;
+    border-color: touch.hover ? Theme.stage-edge-lit : Theme.stage-edge;
+    animate background, border-color { duration: Theme.quick; }
+    touch := Pressable {
+        width: 100%;
+        height: 100%;
+        label: tile.shows == Showing.offered ? "Watch what " + tile.face.name + " shows" : "";
+        enabled: tile.shows == Showing.offered;
+        border-radius: parent.border-radius;
+        clicked => {
+            Do.toggle-watch(tile.sharer);
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: Theme.space-s;
+        padding-right: Theme.space-m;
+        spacing: Theme.space-s;
+        VerticalLayout {
+            alignment: center;
+            Avatar {
+                face: tile.face;
+                size: 30px;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: Theme.space-xxs;
+            horizontal-stretch: 1;
+            Text {
+                text: tile.shows == Showing.mine ? "You" : tile.face.name;
+
+                accessible-label: tile.shows == Showing.mine ? "You are sharing" : tile.face.name;
+                color: Theme.on-stage;
+                font-size: Theme.small;
+                font-weight: 600;
+                overflow: elide;
+            }
+
+            Text {
+                text: tile.shows == Showing.offered ? "Watch" : tile.shows == Showing.mine ? tile.label : "stopped sharing";
+                color: tile.shows == Showing.offered ? Theme.accent : Theme.on-stage-quiet;
+                font-size: Theme.tiny;
+                font-weight: tile.shows == Showing.offered ? 600 : 400;
+                overflow: elide;
+                accessible-role: none;
+            }
+        }
+    }
+}
+
+component Stage inherits Rectangle {
+    background: Theme.stage;
+    property <bool> watching: State.watching.length > 0;
+    property <int> count: State.shelf.length;
+    property <int> columns: count <= 1 ? 1 : count <= 4 ? 2 : 3;
+    property <int> lines: Math.ceil(count / columns);
+    VerticalLayout {
+        for tile in State.watching: Screen {
+            vertical-stretch: 1;
+            tile: tile;
+        }
+        if root.watching && root.count > 0: Rectangle {
+            height: 82px;
+            vertical-stretch: 0;
+            Scroller {
+                width: 100%;
+                height: 100%;
+                label: "Scroll the shared screens";
+                sideways: true;
+                thumb-colour: Theme.stage-edge-lit;
+                thumb-hover-colour: Theme.on-stage-faint;
+                HorizontalLayout {
+                    padding: Theme.space-m;
+                    padding-bottom: 0;
+                    spacing: Theme.space-m;
+                    alignment: start;
+                    for tile in State.shelf: ShelfCard {
+                        tile: tile;
+                    }
+                }
+            }
+        }
+        if !root.watching: Rectangle {
+            vertical-stretch: 1;
+            for tile[index] in State.shelf: Rectangle {
+                x: Math.mod(index, root.columns) * parent.width / root.columns;
+                y: Math.floor(index / root.columns) * parent.height / root.lines;
+                width: parent.width / root.columns;
+                height: parent.height / root.lines;
+                if tile.shows == Showing.offered: Poster {
+                    width: 100%;
+                    height: 100%;
+                    tile: tile;
+                }
+                if tile.shows == Showing.mine: MyShare {
+                    width: 100%;
+                    height: 100%;
+                    tile: tile;
+                }
+                if tile.shows == Showing.ended: Gone {
+                    width: 100%;
+                    height: 100%;
+                    tile: tile;
+                }
+            }
+        }
+    }
+}
+
+export component RoomPage inherits Rectangle {
+    callback numbers();
+    callback let-go();
+    background: Theme.window;
+    property <bool> anything-shared: State.watching.length > 0 || State.shelf.length > 0;
+    property <bool> stage-wanted: true;
+    property <bool> on-stage: root.anything-shared && (root.stage-wanted || State.watching.length > 0);
+    property <bool> chat-wanted: true;
+    property <bool> chat-fits: root.width >= 900px;
+    property <bool> only-pictures: State.full-screen && State.watching.length > 0;
+    property <bool> chat-shown: !root.on-stage || (root.chat-wanted && !root.only-pictures && root.chat-fits);
+    property <int> chat-heard: State.chat-heard;
+    property <int> chat-seen;
+    property <int> chat-unread: root.chat-shown ? 0 : max(0, root.chat-heard - root.chat-seen);
+    init => {
+        root.chat-seen = State.chat-heard;
+    }
+    changed chat-heard => {
+        if root.chat-shown {
+            root.chat-seen = root.chat-heard;
+        }
+    }
+    changed chat-shown => {
+        if root.chat-shown {
+            root.chat-seen = root.chat-heard;
+        }
+    }
+    property <bool> panels-shown: !root.only-pictures && !State.settings-open;
+    property <Looking> looking;
+    property <int> looked-person;
+    property <int> looked-line;
+    property <length> card-anchor-x;
+    property <length> card-anchor-y;
+    property <bool> tuning;
+    property <bool> setting-up-the-room;
+    property <bool> hosting: State.hosting;
+    changed hosting => {
+        if !root.hosting {
+            root.setting-up-the-room = false;
+        }
+    }
+
+    function put-stage-away() {
+        Do.stop-watching();
+        root.stage-wanted = false;
+    }
+    function show-sender(number: int, x: length, y: length) {
+        root.looking = Looking.card;
+        root.looked-line = number;
+        root.card-anchor-x = x - root.absolute-position.x;
+        root.card-anchor-y = y - root.absolute-position.y;
+    }
+    function put-card-away() {
+        root.looking = Looking.nobody;
+        root.let-go();
+    }
+    function put-panel-away() {
+        Do.audio-panel-closed();
+        root.tuning = false;
+        root.setting-up-the-room = false;
+        root.let-go();
+    }
+    HorizontalLayout {
+        if !root.only-pictures: Sidebar {
+            open-person: root.looking == Looking.row ? root.looked-person : -1;
+            toggle-person(id) => {
+                if root.looking == Looking.row && root.looked-person == id {
+                    root.looking = Looking.nobody;
+                } else {
+                    root.looking = Looking.row;
+                    root.looked-person = id;
+                }
+            }
+            settings => {
+                root.put-panel-away();
+                Do.open-settings(SettingsPart.general);
+            }
+            audio-settings => {
+                root.put-panel-away();
+                Do.open-settings(SettingsPart.audio);
+            }
+            numbers => {
+                root.put-panel-away();
+                root.numbers();
+            }
+            tune => {
+                if root.tuning {
+                    root.put-panel-away();
+                } else {
+                    root.put-panel-away();
+                    root.tuning = true;
+                }
+            }
+            host => {
+                if root.setting-up-the-room {
+                    root.put-panel-away();
+                } else {
+                    root.put-panel-away();
+                    root.setting-up-the-room = true;
+                }
+            }
+            watch(id) => {
+                root.stage-wanted = true;
+                Do.toggle-watch(id);
+            }
+        }
+        if !root.only-pictures: VerticalRule { }
+        if root.on-stage: Rectangle {
+            horizontal-stretch: 1;
+            Stage {
+                width: 100%;
+                height: 100%;
+            }
+
+            if !root.only-pictures: HorizontalLayout {
+                x: parent.width - self.width - Theme.space-m;
+                y: Theme.space-m;
+                width: self.preferred-width;
+                height: self.preferred-height;
+                spacing: Theme.space-s;
+                StageButton {
+                    label: "Hide what is shared";
+                    tip: "Hide";
+                    tip-below: true;
+                    shape: Icons.screen;
+                    clicked => {
+                        root.put-stage-away();
+                    }
+                }
+
+                if root.chat-fits: Rectangle {
+                    width: chat-button.width;
+                    height: chat-button.height;
+                    chat-button := StageButton {
+                        label: root.chat-wanted ? "Hide the chat" : "Show the chat";
+                        tip: root.chat-wanted ? "Hide the chat" : "Show the chat";
+                        tip-below: true;
+                        tip-align: right;
+                        shape: Icons.chat;
+                        clicked => {
+                            root.chat-wanted = !root.chat-wanted;
+                        }
+                    }
+
+                    if root.chat-unread > 0: Rectangle {
+                        x: parent.width - self.width / 2 - 4px;
+                        y: -4px;
+                        width: max(18px, unread.preferred-width + 10px);
+                        height: 18px;
+                        border-radius: self.height / 2;
+                        background: Theme.accent;
+                        unread := Text {
+                            width: 100%;
+                            height: 100%;
+                            text: root.chat-unread > 99 ? "99+" : root.chat-unread;
+                            accessible-label: root.chat-unread == 1 ? "1 unread message" : root.chat-unread + " unread messages";
+                            color: Theme.on-accent;
+                            font-size: Theme.tiny;
+                            font-weight: 700;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+        if !root.on-stage: Rectangle {
+            horizontal-stretch: 1;
+            Chat {
+                width: 100%;
+                height: 100%;
+                show-sender(number, x, y) => {
+                    root.show-sender(number, x, y);
+                }
+                let-go => {
+                    root.let-go();
+                }
+            }
+
+            if root.anything-shared: Button {
+                x: parent.width - self.width - Theme.space-l;
+                y: Theme.space-l;
+                width: self.min-width;
+                text: "Show what is shared";
+                shape: Icons.screen;
+                compact: true;
+                clicked => {
+                    root.stage-wanted = true;
+                }
+            }
+        }
+        if root.on-stage && root.chat-wanted && !root.only-pictures && root.chat-fits: Chat {
+            narrow: true;
+            width: 320px;
+            show-sender(number, x, y) => {
+                root.show-sender(number, x, y);
+            }
+            let-go => {
+                root.let-go();
+            }
+        }
+    }
+
+    if root.tuning && root.panels-shown: AudioPanel {
+        width: 100%;
+        height: 100%;
+        card-x: Theme.space-m;
+        card-y: self.height - self.card-height - 112px;
+        dismissed => {
+            root.put-panel-away();
+        }
+    }
+
+    if root.setting-up-the-room && State.hosting && root.panels-shown: RoomPanel {
+        width: 100%;
+        height: 100%;
+        card-x: Theme.space-m;
+        card-y: 68px;
+        dismissed => {
+            root.put-panel-away();
+        }
+    }
+
+    if root.looking == Looking.card && root.panels-shown: PersonCard {
+        width: 100%;
+        height: 100%;
+        number: root.looked-line;
+        card-x: max(Theme.space-m, min(root.card-anchor-x + Theme.space-s, self.width - Theme.popover - Theme.space-m));
+        card-y: root.card-anchor-y + self.card-height + Theme.space-m <= self.height ? root.card-anchor-y : max(Theme.space-m, root.card-anchor-y + Theme.chat-avatar - self.card-height);
+        dismissed => {
+            root.put-card-away();
+        }
+        watch(id) => {
+            root.put-card-away();
+            root.stage-wanted = true;
+            Do.toggle-watch(id);
+        }
+        edit-profile => {
+            root.put-card-away();
+            Do.open-settings(SettingsPart.profile);
+        }
+    }
+}
