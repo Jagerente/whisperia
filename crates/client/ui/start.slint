@@ -1,0 +1,731 @@
+import { Theme } from "theme.slint";
+import { Avatar, Button, Caption, Count, Field, Heading, Icon, IconButton, Icons, Lead, LockMark, Logo, Look, MainButton, PageTitle, PasswordField, Pressable, ProfileChip, RoomSize, Scroller, SidebarFoot, SidebarTitle, SidePanel, ToolButton, VerticalRule } from "widgets.slint";
+import { Do, Guest, Refusal, RoomEntry, Seats, ServerEntry, SettingsPart, Standing, State } from "state.slint";
+
+component Column inherits Rectangle {
+    background: Theme.window;
+    VerticalLayout {
+        x: (root.width - self.width) / 2;
+        width: min(440px, root.width - 2 * Theme.space-xl);
+        height: root.height;
+        alignment: center;
+        spacing: Theme.space-l;
+        HorizontalLayout {
+            spacing: Theme.space-m;
+            alignment: start;
+            VerticalLayout {
+                alignment: center;
+                Logo {
+                    size: 40px;
+                }
+            }
+
+            Text {
+                text: "Whisperia";
+                color: Theme.text;
+                font-size: Theme.brand;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+        }
+
+        @children
+
+        HorizontalLayout {
+            spacing: Theme.space-s;
+            ProfileChip { }
+
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+
+            VerticalLayout {
+                alignment: center;
+                IconButton {
+                    label: "Settings";
+                    tip: "Settings";
+                    shape: Icons.settings;
+                    clicked => {
+                        Do.open-settings(SettingsPart.general);
+                    }
+                }
+            }
+        }
+    }
+}
+
+component StatusDot inherits Rectangle {
+    in property <Standing> standing;
+    in property <string> says;
+    width: 10px;
+    height: 10px;
+    border-radius: self.width / 2;
+    accessible-role: text;
+    accessible-label: root.standing == Standing.up ? root.says : "";
+    background: root.standing == Standing.up ? Theme.good : root.standing == Standing.other-version ? Theme.warn : root.standing == Standing.checking ? Theme.text-faint : transparent;
+    border-width: root.standing == Standing.silent ? 1.5px : 0;
+    border-color: Theme.text-dim;
+    opacity: root.standing == Standing.checking ? 0.3 + 0.7 * Math.abs(Math.sin(animation-tick() / 1400ms * 180deg)) : 1;
+    animate background { duration: Theme.quick; }
+}
+
+component ServerLine inherits Pressable {
+    in property <ServerEntry> server;
+    callback removed();
+    property <bool> pointed: root.hover || forget.hover;
+    property <bool> up: server.standing == Standing.up;
+    property <bool> counted: root.up && server.people > 0;
+    height: 56px;
+    border-radius: Theme.radius;
+    background: root.pointed ? Theme.raised-hover : Theme.surface;
+    border-width: 1px;
+    border-color: Theme.line;
+    animate background { duration: Theme.quick; }
+    HorizontalLayout {
+        padding-left: Theme.space-l;
+        padding-right: Theme.space-s;
+        spacing: Theme.space-m;
+        VerticalLayout {
+            alignment: center;
+            StatusDot {
+                standing: server.standing;
+                says: server.says;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: Theme.space-xxs;
+            horizontal-stretch: 1;
+            Text {
+                text: server.name;
+                color: root.up ? Theme.text : Theme.text-dim;
+                font-size: Theme.body;
+                font-weight: 600;
+                overflow: elide;
+            }
+
+            Caption {
+                text: server.address;
+                wrap: no-wrap;
+                overflow: elide;
+            }
+        }
+
+        if !root.up: Caption {
+            text: server.says;
+            wrap: no-wrap;
+            vertical-alignment: center;
+        }
+        if root.counted: HorizontalLayout {
+            spacing: Theme.space-s;
+            Count {
+                width: 40px;
+                value: server.rooms;
+                shape: Icons.door;
+                words: server.rooms == 1 ? "1 room" : server.rooms + " rooms";
+            }
+
+            Count {
+                width: 40px;
+                value: server.people;
+                shape: Icons.person;
+                words: server.people == 1 ? "1 person" : server.people + " people";
+            }
+        }
+
+        Rectangle {
+            width: Theme.control-compact;
+            Icon {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                shape: Icons.next;
+                colour: Theme.text-dim;
+                size: Theme.icon-small;
+                opacity: server.remembered && root.pointed ? 0 : 1;
+                animate opacity { duration: Theme.quick; }
+            }
+
+            forget := IconButton {
+                x: 0;
+                y: (parent.height - self.height) / 2;
+                enabled: server.remembered;
+                visible: server.remembered;
+                opacity: root.pointed || self.keyed ? 1 : 0;
+                animate opacity { duration: Theme.quick; }
+                label: "Forget " + server.name;
+                tip: "Forget";
+                shape: Icons.close;
+                size: Theme.control-compact;
+                clicked => {
+                    root.removed();
+                }
+            }
+        }
+    }
+}
+
+export component ServersPage inherits Column {
+    property <bool> any-found: State.servers.length > 0;
+    property <length> pitch: 56px + Theme.space-s;
+    property <int> shown: 5;
+    property <bool> refused: address.text != "" && address.text == State.refused-address;
+    VerticalLayout {
+        spacing: Theme.space-s;
+        Heading {
+            text: "Servers";
+        }
+
+        if !root.any-found: Rectangle {
+            border-radius: Theme.radius;
+            border-width: 1px;
+            border-color: Theme.line;
+            background: Theme.surface;
+            VerticalLayout {
+                padding: Theme.space-l;
+                spacing: Theme.space-xs;
+                alignment: center;
+                Heading {
+                    text: State.search-trouble == "" ? "Looking for servers on this network..." : "Automatic search is not available";
+                    wrap: word-wrap;
+                }
+
+                Caption {
+                    text: State.search-trouble == "" ? "Start whisperia-server on one PC of this network, or type its address below." : State.search-trouble;
+                }
+            }
+        }
+        if root.any-found: Rectangle {
+            height: min(root.shown, State.servers.length) * root.pitch - Theme.space-s;
+            Scroller {
+                label: "Scroll the servers";
+                VerticalLayout {
+                    spacing: Theme.space-s;
+                    for server[index] in State.servers: ServerLine {
+                        label: "Connect to " + server.name;
+                        server: server;
+                        clicked => {
+                            Do.connect-to(index);
+                        }
+                        removed => {
+                            Do.forget(index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    VerticalLayout {
+        spacing: Theme.space-s;
+        Heading {
+            text: "By address";
+        }
+
+        HorizontalLayout {
+            spacing: Theme.space-s;
+            address := Field {
+                label: "Server address";
+                placeholder: "192.168.1.52 or host-pc:47820";
+                wrong: root.refused;
+                accepted(text) => {
+                    Do.connect-address(text);
+                }
+            }
+
+            Button {
+                text: "Connect";
+                look: Look.primary;
+                enabled: address.text != "";
+                clicked => {
+                    Do.connect-address(address.text);
+                }
+            }
+        }
+
+        if root.refused: Text {
+            text: State.refused-why;
+            color: Theme.bad;
+            font-size: Theme.small;
+            wrap: word-wrap;
+        }
+    }
+
+    property <string> address-to-correct: State.address-to-correct;
+    changed address-to-correct => {
+        if self.address-to-correct != "" {
+            address.text = self.address-to-correct;
+        }
+    }
+    init => {
+        address.text = State.address-to-correct;
+        if !root.any-found {
+            address.focus-here();
+        }
+    }
+}
+
+export component ConnectingPage inherits Rectangle {
+    property <bool> lost: State.attempt > 0;
+    background: Theme.window;
+    VerticalLayout {
+        alignment: center;
+        spacing: Theme.space-l;
+        VerticalLayout {
+            spacing: Theme.space-s;
+            PageTitle {
+                text: root.lost ? "Connection lost" : "Connecting";
+            }
+
+            Lead {
+                text: root.lost ? "Reconnecting to " + State.connecting-to + " - attempt " + State.attempt : "to " + State.connecting-to + "...";
+            }
+
+            if State.retry-reason != "": Caption {
+                text: State.retry-reason;
+                horizontal-alignment: center;
+            }
+
+            if root.lost && (State.muted || State.deafened): Caption {
+                text: State.deafened ? "You come back deafened." : "You come back muted.";
+                horizontal-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            Button {
+                text: "Cancel";
+                clicked => {
+                    Do.cancel-connecting();
+                }
+            }
+        }
+    }
+}
+
+component RoomLine inherits Pressable {
+    in property <string> name;
+    in property <string> tally;
+    in property <string> people;
+    in property <bool> locked;
+    in property <bool> full;
+    in property <bool> fresh;
+    in property <bool> chosen;
+    height: 44px;
+    border-radius: Theme.radius;
+    background: root.chosen || root.hover ? Theme.raised : transparent;
+    accessible-checkable: true;
+    accessible-checked: root.chosen;
+    animate background { duration: Theme.quick; }
+    HorizontalLayout {
+        padding-left: Theme.space-m;
+        padding-right: Theme.space-m;
+        spacing: Theme.space-s;
+        if root.fresh: VerticalLayout {
+            alignment: center;
+            Icon {
+                shape: Icons.plus;
+                colour: Theme.text-dim;
+                size: Theme.icon-small;
+            }
+        }
+        Text {
+            text: root.name;
+            accessible-role: none;
+            color: Theme.text;
+            font-size: Theme.body;
+            font-weight: root.chosen ? 600 : 500;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+
+        if !root.fresh && !root.locked: Count {
+            value: root.tally;
+            shape: Icons.person;
+            words: root.full ? "Full, " + root.people : root.people;
+            colour: root.full ? Theme.bad : Theme.text-dim;
+            icon-colour: root.full ? Theme.bad : Theme.text-dim;
+            size: Theme.small;
+            weight: root.full ? 600 : 400;
+        }
+        if root.locked: VerticalLayout {
+            alignment: center;
+            Icon {
+                shape: Icons.lock;
+                colour: Theme.bad;
+                size: Theme.icon-small;
+                accessible-role: text;
+                accessible-label: root.name + " asks for a password";
+            }
+        }
+    }
+}
+
+component GuestCard inherits Rectangle {
+    in property <Guest> guest;
+    Avatar {
+        x: (parent.width - self.width) / 2;
+        y: 0;
+        size: 64px;
+        face: guest.face;
+    }
+
+    if guest.host: Rectangle {
+        x: parent.width / 2 + Theme.space-l;
+        y: -Theme.space-xxs;
+        width: 22px;
+        height: 22px;
+        border-radius: self.width / 2;
+        background: Theme.window;
+        Icon {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            shape: Icons.crown;
+            colour: Theme.gold;
+            size: Theme.icon-small;
+            accessible-role: text;
+            accessible-label: guest.face.name + " is the host";
+        }
+    }
+
+    Text {
+        x: Theme.space-xs;
+        y: 68px;
+        width: parent.width - 2 * Theme.space-xs;
+        text: guest.face.name;
+        color: Theme.text;
+        font-size: Theme.small;
+        horizontal-alignment: center;
+        overflow: elide;
+    }
+}
+
+component Guests inherits Rectangle {
+    in property <[Guest]> guests;
+    in property <length> across;
+    property <length> cell: 100px;
+    out property <length> line: 98px;
+    property <int> columns: max(1, min(root.guests.length, Math.floor(root.across / root.cell)));
+    width: root.columns * root.cell;
+    height: Math.ceil(root.guests.length / root.columns) * root.line;
+    for guest[place] in root.guests: GuestCard {
+        x: Math.mod(place, root.columns) * root.cell;
+        y: Math.floor(place / root.columns) * root.line;
+        width: root.cell;
+        height: root.line;
+        guest: guest;
+    }
+}
+
+component RoomPreview inherits Rectangle {
+    in property <RoomEntry> room;
+    property <string> typed;
+    property <bool> refused: State.locked-out == room.name;
+    property <bool> wrong: root.refused && State.refusal == Refusal.wrong-password;
+    property <bool> turned-away: root.refused && State.refusal == Refusal.full;
+    property <bool> ready: State.joining == "" && !room.full && (!room.locked || root.typed != "");
+    changed room => {
+        root.typed = "";
+        if !room.locked {
+            enter.focus-here();
+        }
+    }
+    function enter() {
+        if root.ready {
+            Do.enter-room(room.name, root.typed);
+        }
+    }
+    VerticalLayout {
+        alignment: center;
+        padding: Theme.space-xxl;
+        spacing: Theme.space-xl;
+        VerticalLayout {
+            spacing: Theme.space-xs;
+            PageTitle {
+                text: room.name;
+                overflow: elide;
+            }
+
+            Lead {
+                text: room.full ? "Full: " + room.people : root.turned-away ? "Full right now. Try again when somebody leaves." : root.wrong ? "That was not the password." : room.locked ? "Asks for a password" : room.people;
+                color: root.turned-away || root.wrong || room.full ? Theme.bad : Theme.text-dim;
+                wrap: word-wrap;
+            }
+        }
+
+        if room.locked: HorizontalLayout {
+            alignment: center;
+            PasswordField {
+                label: "Password of " + room.name;
+                placeholder: "Password";
+                wrong: root.wrong;
+                width: 260px;
+                text <=> root.typed;
+                accepted => {
+                    root.enter();
+                }
+                init => {
+                    self.focus-here();
+                }
+            }
+        }
+
+        if !room.locked: HorizontalLayout {
+            alignment: center;
+            Scroller {
+                label: "Scroll the guests";
+                width: guests.width + 2 * Theme.space-m + Theme.scroll-gutter;
+                height: min(guests.height, max(guests.line, root.height - 250px));
+                VerticalLayout {
+                    padding-left: Theme.space-m;
+                    padding-right: Theme.space-m;
+                    alignment: start;
+                    guests := Guests {
+                        guests: State.room-guests;
+                        across: min(600px, root.width - 92px);
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            enter := MainButton {
+                text: State.joining == room.name ? "Entering..." : room.full ? "Full" : "Enter";
+                label: "Enter " + room.name;
+                enabled: root.ready;
+                clicked => {
+                    root.enter();
+                }
+                init => {
+                    if !room.locked {
+                        self.focus-here();
+                    }
+                }
+            }
+        }
+    }
+}
+
+component NewRoom inherits Rectangle {
+    property <Seats> seats: { any: true, most: State.most-seats };
+    function open() {
+        Do.open-room(name.text, password.text, root.seats);
+    }
+    VerticalLayout {
+        alignment: center;
+        padding: Theme.space-xxl;
+        spacing: Theme.space-xl;
+        VerticalLayout {
+            spacing: Theme.space-xs;
+            PageTitle {
+                text: "New room";
+            }
+
+            Lead {
+                text: "It is there for as long as somebody is in it.";
+                wrap: word-wrap;
+            }
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            VerticalLayout {
+                width: 320px;
+                spacing: Theme.space-m;
+                HorizontalLayout {
+                    spacing: Theme.space-s;
+                    VerticalLayout {
+                        alignment: center;
+                        Icon {
+                            shape: Icons.door;
+                            colour: Theme.text-dim;
+                            size: Theme.icon;
+                        }
+                    }
+
+                    name := Field {
+                        label: "Name of the new room";
+                        placeholder: "Room name";
+                        limit: 24;
+                        text: "General";
+                        accepted => {
+                            root.open();
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.space-s;
+                    VerticalLayout {
+                        alignment: center;
+                        LockMark {
+                            locked: password.text != "";
+                            accessible-label: password.text != "" ? "The new room asks for a password" : "The new room has no password";
+                        }
+                    }
+
+                    password := PasswordField {
+                        label: "Password of the new room";
+                        placeholder: "No password";
+                        accepted => {
+                            root.open();
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    spacing: Theme.space-s;
+                    VerticalLayout {
+                        alignment: center;
+                        Icon {
+                            shape: Icons.person;
+                            colour: Theme.text-dim;
+                            size: Theme.icon;
+                        }
+                    }
+
+                    RoomSize {
+                        label: "Size of the new room";
+                        seats: root.seats;
+                        moved(seats) => {
+                            root.seats = seats;
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    padding-top: Theme.space-xs;
+                    alignment: center;
+                    MainButton {
+                        text: State.joining != "" ? "Opening..." : "Open";
+                        label: "Open";
+                        enabled: name.text != "" && State.joining == "";
+                        clicked => {
+                            root.open();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    init => {
+        name.focus-here();
+    }
+}
+
+export component RoomsPage inherits Rectangle {
+    background: Theme.window;
+    HorizontalLayout {
+        SidePanel {
+            z: 1;
+            VerticalLayout {
+                HorizontalLayout {
+                    padding: Theme.space-l;
+                    padding-left: Theme.space-s + Theme.space-m;
+                    padding-bottom: Theme.space-xl;
+                    SidebarTitle {
+                        title: State.server-name;
+                        subtitle: State.server-address;
+                    }
+                }
+
+                VerticalLayout {
+                    padding-left: Theme.space-s + Theme.space-m;
+                    padding-right: Theme.space-s + Theme.space-m;
+                    padding-bottom: Theme.space-s;
+                    spacing: Theme.space-xs;
+                    Heading {
+                        text: "Rooms";
+                    }
+
+                    if State.rooms.length == 0: Caption {
+                        text: "Nobody is in a room yet.";
+                    }
+                }
+
+                Scroller {
+                    label: "Scroll the rooms";
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        padding-left: Theme.space-s;
+                        padding-right: Theme.space-s;
+                        spacing: Theme.space-xxs;
+                        alignment: start;
+                        for room[index] in State.rooms: RoomLine {
+                            label: "Room " + room.name;
+                            name: room.name;
+                            tally: room.tally;
+                            people: room.people;
+                            locked: room.locked;
+                            full: room.full;
+                            chosen: !State.looking-at-new-room && index == State.looked-room;
+                            clicked => {
+                                Do.look-into(index);
+                            }
+                            double-clicked => {
+                                if !room.locked && !room.full {
+                                    Do.enter-room(room.name, "");
+                                }
+                            }
+                        }
+                        RoomLine {
+                            label: "New room";
+                            name: "New room";
+                            fresh: true;
+                            chosen: State.looking-at-new-room;
+                            clicked => {
+                                Do.look-into-new-room();
+                            }
+                        }
+                    }
+                }
+
+                SidebarFoot {
+                    HorizontalLayout {
+                        spacing: Theme.space-xs;
+                        VerticalLayout {
+                            alignment: center;
+                            ProfileChip { }
+                        }
+
+                        Rectangle {
+                            horizontal-stretch: 1;
+                        }
+
+                        ToolButton {
+                            label: "Settings";
+                            tip: "Settings";
+                            shape: Icons.settings;
+                            clicked => {
+                                Do.open-settings(SettingsPart.general);
+                            }
+                        }
+
+                        ToolButton {
+                            label: "Disconnect";
+                            tip: "Disconnect";
+                            shape: Icons.leave;
+                            clicked => {
+                                Do.disconnect();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        VerticalRule { }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            if !State.looking-at-new-room: RoomPreview {
+                room: State.rooms[State.looked-room];
+            }
+            if State.looking-at-new-room: NewRoom { }
+        }
+    }
+}
