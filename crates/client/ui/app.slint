@@ -1,0 +1,102 @@
+import { Theme } from "theme.slint";
+import { Ask, Do, Page, Pointer, State } from "state.slint";
+import { ConnectingPage, RoomsPage, ServersPage } from "start.slint";
+import { RoomPage } from "room.slint";
+import { NameSheet, NumbersSheet, PasswordSheet, ShareSheet, TrustSheet, VersionSheet } from "sheets.slint";
+import { SettingsSheet } from "settings.slint";
+import { Strings, Toast } from "widgets.slint";
+
+export { Do, Pointer, State, Strings, Theme }
+
+enum Uppermost { page, trust, password, other-version, name, settings, share, numbers }
+
+export component AppWindow inherits Window {
+    title: State.page == Page.room ? State.room-name + " - Whisperia" : "Whisperia";
+    icon: @image-url("../../../assets/whisperia-256.png");
+    preferred-width: 1180px;
+    preferred-height: 760px;
+    min-width: 720px;
+    min-height: 520px;
+    background: Theme.window;
+    default-font-size: Theme.body;
+    forward-focus: keys;
+
+    property <bool> numbers-open;
+    property <bool> name-asked;
+    property <Uppermost> uppermost: State.ask == Ask.trust ? Uppermost.trust
+        : State.ask == Ask.password ? Uppermost.password
+        : State.ask == Ask.other-version ? Uppermost.other-version
+        : State.name-unknown && !root.name-asked ? Uppermost.name
+        : State.settings-open ? Uppermost.settings
+        : State.page != Page.room ? Uppermost.page
+        : State.choosing ? Uppermost.share
+        : root.numbers-open ? Uppermost.numbers
+        : Uppermost.page;
+    changed uppermost => {
+        if root.uppermost == Uppermost.page {
+            keys.focus();
+        }
+    }
+    property <Page> page: State.page;
+    changed page => {
+        if root.page == Page.room {
+            keys.focus();
+        }
+    }
+
+    keys := FocusScope {
+        focus-on-tab-navigation: false;
+        key-pressed(event) => {
+            if event.text == Key.Escape && State.full-screen {
+                Do.set-full-screen(false);
+                return accept;
+            }
+            if event.text == Key.F11 && State.page == Page.room {
+                Do.set-full-screen(!State.full-screen);
+                return accept;
+            }
+            return reject;
+        }
+
+        if State.page == Page.servers: ServersPage { }
+        if State.page == Page.connecting: ConnectingPage { }
+        if State.page == Page.rooms: RoomsPage { }
+        if State.page == Page.room: RoomPage {
+            numbers => {
+                root.numbers-open = true;
+            }
+            let-go => {
+                keys.focus();
+            }
+        }
+    }
+
+    if root.uppermost == Uppermost.numbers: NumbersSheet {
+        closed => {
+            root.numbers-open = false;
+        }
+    }
+    if root.uppermost == Uppermost.share: ShareSheet { }
+    if root.uppermost == Uppermost.settings: SettingsSheet { }
+    if root.uppermost == Uppermost.name: NameSheet {
+        closed => {
+            root.name-asked = true;
+        }
+    }
+    if root.uppermost == Uppermost.trust: TrustSheet { }
+    if root.uppermost == Uppermost.password: PasswordSheet { }
+    if root.uppermost == Uppermost.other-version: VersionSheet { }
+
+    property <bool> beside-the-sidebar: (State.page == Page.room || State.page == Page.rooms) && !State.full-screen;
+    property <length> notice-left: root.beside-the-sidebar ? Theme.sidebar : 0;
+    if State.notice != "": Toast {
+        x: root.notice-left + (root.width - root.notice-left - self.width) / 2;
+        y: State.page == Page.room && root.uppermost == Uppermost.page ? Theme.space-xl + Theme.control-small + Theme.space-xs : Theme.space-m;
+        most-width: root.width - root.notice-left - 2 * Theme.space-xl;
+        text: State.notice;
+        error: State.notice-is-error;
+        dismissed => {
+            Do.dismiss-notice();
+        }
+    }
+}

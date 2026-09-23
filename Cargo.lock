@@ -2586,6 +2586,7 @@ dependencies = [
  "i-slint-common",
  "icu_normalizer",
  "icu_properties",
+ "image",
  "indexmap",
  "itertools 0.15.0",
  "lyon_extra",
@@ -2593,9 +2594,14 @@ dependencies = [
  "num_enum",
  "proc-macro2",
  "quote",
+ "rayon",
+ "resvg",
  "rowan",
+ "rspolib",
+ "skrifa",
  "smol_str 0.3.6",
  "strum",
+ "swash",
  "typed-index-collections",
  "unicode-segmentation",
  "url",
@@ -3704,6 +3710,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "natord"
+version = "1.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "308d96db8debc727c3fd9744aac51751243420e46edf401010908da7f8d5e57c"
+
+[[package]]
 name = "ndarray"
 version = "0.15.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4672,6 +4684,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pollster"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
+
+[[package]]
 name = "polycool"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5341,6 +5359,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rspolib"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fda9a7796aff63a7b1b39ccc93fffaaf65e20042984b4843041a49ca4677535"
+dependencies = [
+ "lazy_static",
+ "natord",
+ "snafu",
+ "unicode-linebreak",
+ "unicode-width",
+]
+
+[[package]]
 name = "rtrb"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5772,6 +5803,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-build"
+version = "1.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6cfc9bb0dd48d01508f9e21511d0215e78e8e3be032bacd6be61744abe03c83"
+dependencies = [
+ "derive_more",
+ "fontique",
+ "i-slint-compiler",
+ "spin_on",
+ "toml_edit",
+]
+
+[[package]]
 name = "slint-macros"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5840,6 +5884,27 @@ checksum = "4aaa7368fcf4852a4c2dd92df0cace6a71f2091ca0a23391ce7f3a31833f1523"
 dependencies = [
  "borsh",
  "serde_core",
+]
+
+[[package]]
+name = "snafu"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e84b3f4eacbf3a1ce05eac6763b4d629d60cbc94d632e4092c54ade71f1e1a2"
+dependencies = [
+ "snafu-derive",
+]
+
+[[package]]
+name = "snafu-derive"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1c97747dbf44bb1ca44a561ece23508e99cb592e862f22222dcf42f51d1e451"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -6375,6 +6440,7 @@ dependencies = [
  "indexmap",
  "toml_datetime",
  "toml_parser",
+ "toml_writer",
  "winnow",
 ]
 
@@ -7369,6 +7435,7 @@ name = "whisperia"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "arboard",
  "audioadapter-buffers",
  "bytes",
  "chrono",
@@ -7381,6 +7448,7 @@ dependencies = [
  "ndarray",
  "nnnoiseless",
  "opus",
+ "pollster",
  "quinn",
  "rtrb",
  "rubato 5.0.0",
@@ -7389,6 +7457,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "slint",
+ "slint-build",
  "thiserror 2.0.20",
  "tokio",
  "tracing",
@@ -7408,6 +7477,7 @@ dependencies = [
  "whisperia-proto",
  "whisperia-winmedia",
  "windows-sys 0.59.0",
+ "winresource",
 ]
 
 [[package]]

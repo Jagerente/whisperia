@@ -10,6 +10,7 @@ pub mod discovery;
 pub mod dsp;
 pub mod engine;
 mod files;
+pub mod gui;
 pub mod instance;
 pub mod jitter;
 pub mod net;
