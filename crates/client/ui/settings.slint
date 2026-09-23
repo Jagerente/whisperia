@@ -1,0 +1,806 @@
+import { Colours, Theme } from "theme.slint";
+import { Avatar, Button, Caption, FacePicker, Heading, Icon, IconButton, Icons, Lead, Link, NameField, Picker, Pressable, Reading, Scroller, Sheet, Switch, Title, VerticalRule } from "widgets.slint";
+import { AutoGainLine, Hearing, LevelMeter, MicGainSlider, MicTestButton, NoiseChoice, NoiseCredit, SpeakerVolumeSlider } from "audio.slint";
+import { Appearance, Do, Face, SettingsPart, State } from "state.slint";
+
+component Setting inherits VerticalLayout {
+    in property <string> name;
+    in property <string> remark;
+    in property <color> remark-colour: Theme.text-dim;
+    in property <bool> dim;
+    HorizontalLayout {
+        spacing: Theme.space-m;
+        min-height: Theme.row;
+        Text {
+            text: root.name;
+            color: root.dim ? Theme.text-faint : Theme.text;
+            font-size: Theme.body;
+            vertical-alignment: center;
+            min-width: 120px;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+
+        @children
+    }
+
+    if root.remark != "": Caption {
+        text: root.remark;
+        color: root.remark-colour;
+    }
+}
+
+component AtTheEnd inherits HorizontalLayout {
+    alignment: end;
+    horizontal-stretch: 0;
+    VerticalLayout {
+        alignment: center;
+        @children
+    }
+}
+
+component Gap inherits Rectangle {
+    height: Theme.space-l;
+}
+
+component DeviceHeading inherits HorizontalLayout {
+    in property <string> title;
+    in property <[string]> devices;
+    in property <int> chosen;
+    callback picked(index: int);
+    spacing: Theme.space-m;
+    Heading {
+        text: root.title;
+        vertical-alignment: center;
+        horizontal-stretch: 1;
+    }
+
+    Picker {
+        label: root.title;
+        width: 280px;
+        horizontal-stretch: 0;
+        choices: root.devices;
+        chosen: root.chosen;
+        picked(index) => {
+            root.picked(index);
+        }
+    }
+}
+
+component LineName inherits Text {
+    color: Theme.text;
+    font-size: Theme.body;
+    vertical-alignment: center;
+    width: 64px;
+}
+
+component AudioSettings inherits VerticalLayout {
+    spacing: Theme.space-xl;
+    VerticalLayout {
+        spacing: Theme.space-m;
+        DeviceHeading {
+            title: "Microphone";
+            devices: State.microphones;
+            chosen: State.microphone;
+            picked(index) => {
+                Do.pick-microphone(index);
+            }
+        }
+
+        VerticalLayout {
+            spacing: Theme.space-xs;
+            GridLayout {
+                spacing-horizontal: Theme.space-m;
+                spacing-vertical: Theme.space-s;
+                Row {
+                    LineName {
+                        text: "Level";
+                    }
+
+                    LevelMeter {
+                        horizontal-stretch: 1;
+                    }
+
+                    MicTestButton {
+                        colspan: 2;
+                    }
+                }
+
+                Row {
+                    LineName {
+                        text: "Gain";
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+                        horizontal-stretch: 1;
+                        MicGainSlider { }
+                    }
+
+                    Reading {
+                        text: Do.loudness(Hearing.gain);
+                    }
+
+                    AutoGainLine {
+                        text: "Automatic";
+                        horizontal-stretch: 0;
+                    }
+                }
+            }
+
+            Caption {
+                height: 16px;
+                text: Hearing.test-said;
+                color: Hearing.test-colour;
+                horizontal-alignment: right;
+            }
+        }
+
+        VerticalLayout {
+            spacing: Theme.space-s;
+            LineName {
+                text: "Noise suppression";
+                width: self.preferred-width;
+            }
+
+            NoiseChoice {
+                horizontal-stretch: 1;
+            }
+
+            NoiseCredit { }
+        }
+    }
+
+    VerticalLayout {
+        spacing: Theme.space-m;
+        DeviceHeading {
+            title: "Speakers";
+            devices: State.speakers;
+            chosen: State.speaker;
+            picked(index) => {
+                Do.pick-speaker(index);
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.space-m;
+            LineName {
+                text: "Volume";
+            }
+
+            SpeakerVolumeSlider { }
+
+            Reading {
+                text: Do.percentage(State.volume-percent);
+            }
+        }
+    }
+}
+
+component NotificationSettings inherits VerticalLayout {
+    Setting {
+        name: "Notification sounds";
+        AtTheEnd {
+            Switch {
+                label: "Notification sounds";
+                on: State.sounds;
+                toggled => {
+                    Do.toggle-sounds();
+                }
+            }
+        }
+    }
+
+    for sound[index] in State.each-sound: VerticalLayout {
+        if sound.group != "": Gap { }
+        if sound.group != "": Heading {
+            text: sound.group;
+        }
+        Setting {
+            name: sound.name;
+            dim: !State.sounds;
+            HorizontalLayout {
+                alignment: end;
+                spacing: Theme.space-s;
+                horizontal-stretch: 0;
+                VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        label: "Play: " + sound.name;
+                        tip: "Play";
+                        shape: Icons.play;
+                        clicked => {
+                            Do.play-sound(index);
+                        }
+                    }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Switch {
+                        label: "Sound: " + sound.name;
+                        on: sound.on;
+                        enabled: State.sounds;
+                        toggled => {
+                            Do.toggle-sound(index);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component KeyCap inherits Pressable {
+    in property <string> keys;
+    in property <bool> asking;
+    property <string> said: root.asking ? "Press the keys..." : root.keys == "" ? "Not set" : root.keys;
+    width: 170px;
+    height: 30px;
+    border-radius: Theme.radius-small;
+    border-width: 1px;
+    border-color: root.asking ? Theme.accent : Theme.line;
+    background: root.hover ? Theme.raised-hover : Theme.raised;
+    accessible-value: root.said;
+    animate background, border-color { duration: Theme.quick; }
+    Text {
+        text: root.said;
+        accessible-role: none;
+        color: root.asking ? Theme.accent : root.keys == "" ? Theme.text-faint : Theme.text;
+        font-size: Theme.small;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}
+
+component KeyButton inherits VerticalLayout {
+    in property <string> label;
+    in property <string> tip;
+    in property <string> shape;
+    in property <bool> enabled;
+    callback clicked();
+    alignment: center;
+    IconButton {
+        label: root.label;
+        tip: root.tip;
+        shape: root.shape;
+        size: 26px;
+        enabled: root.enabled;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component KeybindSettings inherits VerticalLayout {
+    spacing: Theme.space-s;
+    HorizontalLayout {
+        spacing: Theme.space-m;
+        Title {
+            text: "Keybinds";
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+
+        if State.has-tray: VerticalLayout {
+            alignment: center;
+            Button {
+                text: "Reset all";
+                label: "Reset all keys";
+                enabled: !State.keybinds-are-default;
+                clicked => {
+                    Do.reset-keys();
+                }
+            }
+        }
+    }
+
+    if !State.has-tray: Caption {
+        text: "Keys that work from any window come with the system tray icon, and it did not start on this PC.";
+    }
+
+    if State.has-tray: VerticalLayout {
+        spacing: Theme.space-xs;
+        for keybind[index] in State.keybinds: Setting {
+            name: keybind.name;
+            remark: keybind.remark != "" ? keybind.remark : keybind.asking ? "Esc leaves it as it is" : "";
+            remark-colour: keybind.refused ? Theme.bad : Theme.text-dim;
+            HorizontalLayout {
+                alignment: end;
+                spacing: Theme.space-xs;
+                horizontal-stretch: 0;
+                VerticalLayout {
+                    alignment: center;
+                    KeyCap {
+                        label: "Key for " + keybind.name;
+                        keys: keybind.keys;
+                        asking: keybind.asking;
+                        clicked => {
+                            Do.ask-key(index);
+                        }
+                    }
+                }
+
+                KeyButton {
+                    label: "Back to the usual key for " + keybind.name;
+                    tip: "Reset";
+                    shape: Icons.revert;
+                    enabled: keybind.keys != keybind.default-keys;
+                    clicked => {
+                        Do.reset-key(index);
+                    }
+                }
+
+                KeyButton {
+                    label: "Remove the key for " + keybind.name;
+                    tip: "Unbind";
+                    shape: Icons.close;
+                    enabled: keybind.keys != "";
+                    clicked => {
+                        Do.remove-key(index);
+                    }
+                }
+            }
+        }
+    }
+}
+
+component Miniature inherits Rectangle {
+    in property <bool> dark;
+    property <Colours> colours: root.dark ? Theme.dark-colours : Theme.light-colours;
+    width: 112px;
+    height: 70px;
+    background: root.colours.window;
+    Rectangle {
+        x: 0;
+        width: 38px;
+        background: root.colours.surface;
+    }
+
+    for face[index] in Theme.sketch-faces: Rectangle {
+        x: 6px;
+        y: 8px + index * 12px;
+        width: 8px;
+        height: 8px;
+        border-radius: self.width / 2;
+        background: face;
+    }
+
+    for line[index] in [16px, 12px]: Rectangle {
+        x: 17px;
+        y: 10.5px + index * 12px;
+        width: line;
+        height: 3px;
+        border-radius: self.height / 2;
+        background: root.colours.sketch-line;
+    }
+
+    for line[index] in [{ width: 20px, accent: true }, { width: 44px, accent: false }, { width: 30px, accent: false }]: Rectangle {
+        x: 46px;
+        y: 12px + index * 8px;
+        width: line.width;
+        height: 3px;
+        border-radius: self.height / 2;
+        background: line.accent ? Theme.accent : root.colours.sketch-line;
+    }
+
+    Rectangle {
+        x: 44px;
+        y: 55px;
+        width: 60px;
+        height: 8px;
+        border-radius: 3px;
+        background: root.colours.raised;
+    }
+}
+
+component AppearanceCard inherits Pressable {
+    in property <string> name;
+
+    in property <bool> light;
+    in property <bool> dark;
+    in property <bool> chosen;
+    label: "Appearance: " + root.name;
+    accessible-checkable: true;
+    accessible-checked: root.chosen;
+    width: 120px;
+    height: 104px;
+    border-radius: Theme.radius;
+    Rectangle {
+        y: 0;
+        height: 78px;
+        border-radius: Theme.radius;
+        border-width: 2px;
+        border-color: root.chosen ? Theme.accent : root.hover ? Theme.line : transparent;
+        animate border-color { duration: Theme.quick; }
+        Rectangle {
+            x: 4px;
+            y: 4px;
+            width: 112px;
+            height: 70px;
+            border-radius: Theme.radius-small;
+            clip: true;
+            if root.light: Rectangle {
+                x: 0;
+                width: root.dark ? 56px : 112px;
+                clip: true;
+                Miniature {
+                    x: 0;
+                    dark: false;
+                }
+            }
+            if root.dark: Rectangle {
+                x: root.light ? 56px : 0;
+                width: root.light ? 56px : 112px;
+                clip: true;
+                Miniature {
+                    x: root.light ? -56px : 0;
+                    dark: true;
+                }
+            }
+
+            Rectangle {
+                border-radius: Theme.radius-small;
+                border-width: 1px;
+                border-color: Theme.line;
+            }
+        }
+    }
+
+    Text {
+        y: 86px;
+        width: 100%;
+        text: root.name;
+        accessible-role: none;
+        color: Theme.text;
+        font-size: Theme.small;
+        font-weight: root.chosen ? 600 : 500;
+        horizontal-alignment: center;
+    }
+}
+
+component GeneralSettings inherits VerticalLayout {
+    spacing: Theme.space-s;
+    Heading {
+        text: "Appearance";
+    }
+
+    HorizontalLayout {
+        spacing: Theme.space-m;
+        alignment: start;
+        for choice in [
+            { appearance: Appearance.system, name: "Like Windows", light: true, dark: true },
+            { appearance: Appearance.light, name: "Light", light: true, dark: false },
+            { appearance: Appearance.dark, name: "Dark", light: false, dark: true },
+        ]: AppearanceCard {
+            name: choice.name;
+            light: choice.light;
+            dark: choice.dark;
+            chosen: choice.appearance == State.appearance;
+            clicked => {
+                Do.pick-appearance(choice.appearance);
+            }
+        }
+    }
+
+    Gap { }
+
+    Heading {
+        text: "Window";
+    }
+
+    if State.has-tray: Setting {
+        name: "Minimize Whisperia to the system tray";
+        remark: "Clicking X minimizes Whisperia instead of closing it completely.";
+        AtTheEnd {
+            Switch {
+                label: "Minimize Whisperia to the system tray";
+                on: State.close-to-tray;
+                toggled => {
+                    Do.pick-close-to-tray(!State.close-to-tray);
+                }
+            }
+        }
+    }
+    if !State.has-tray: Caption {
+        text: "Clicking X quits Whisperia: the system tray icon did not start on this PC.";
+    }
+}
+
+component AppTile {
+    in property <length> size;
+    width: root.size;
+    height: root.size;
+    Rectangle {
+        x: root.size * 0.02;
+        y: root.size * 0.02;
+        width: root.size * 0.96;
+        height: root.size * 0.96;
+        border-radius: root.size * 0.21;
+        background: Theme.app-tile;
+        drop-shadow-blur: Theme.sheet-blur;
+        drop-shadow-offset-y: Theme.sheet-offset;
+        drop-shadow-color: Theme.lift-shadow;
+    }
+
+    Image {
+        source: @image-url("../../../assets/whisperia-256.png");
+        width: root.size;
+        height: root.size;
+        accessible-role: none;
+    }
+}
+
+component Centred inherits HorizontalLayout {
+    alignment: center;
+}
+
+component AboutSettings inherits VerticalLayout {
+    Rectangle {
+        vertical-stretch: 2;
+        min-height: Theme.space-xl;
+    }
+
+    VerticalLayout {
+        vertical-stretch: 0;
+        spacing: Theme.space-xs;
+        Centred {
+            AppTile {
+                size: 104px;
+            }
+        }
+
+        Rectangle {
+            height: Theme.space-l;
+        }
+
+        Text {
+            text: "Whisperia";
+            color: Theme.text;
+            font-size: Theme.brand;
+            font-weight: 700;
+            horizontal-alignment: center;
+        }
+
+        Caption {
+            text: "Version " + State.version;
+            horizontal-alignment: center;
+        }
+
+        Rectangle {
+            height: Theme.space-m;
+        }
+
+        Lead {
+            text: "Voice chat with screen sharing, on a server of your own.";
+            wrap: word-wrap;
+        }
+
+        Rectangle {
+            height: Theme.space-xl;
+        }
+
+        Centred {
+            Button {
+                text: "Source code on GitHub";
+                shape: Icons.code;
+                clicked => {
+                    Do.open-link(State.source-link);
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        vertical-stretch: 3;
+        min-height: Theme.space-xxl;
+    }
+
+    VerticalLayout {
+        vertical-stretch: 0;
+        Centred {
+            Link {
+                text: "Free software under the GNU GPL 3.0 or later, with no warranty";
+                colour: Theme.text-faint;
+                clicked => {
+                    Do.open-link("https://www.gnu.org/licenses/gpl-3.0.html");
+                }
+            }
+        }
+
+        Centred {
+            Link {
+                text: "Made with Slint";
+                colour: Theme.text-faint;
+                clicked => {
+                    Do.open-link("https://slint.dev");
+                }
+            }
+        }
+    }
+}
+
+component ProfileSettings inherits VerticalLayout {
+    spacing: Theme.space-s;
+    property <Face> face: Do.face-of(name.text == "" ? State.me.name : name.text, State.me.animal);
+    property <bool> empty;
+
+    function save() {
+        if name.text == "" {
+            root.empty = true;
+            return;
+        }
+        root.empty = false;
+        Do.rename(name.text);
+        name.text = State.me.name;
+        name.let-go();
+    }
+    function keep() {
+        root.empty = false;
+        name.text = State.me.name;
+    }
+    HorizontalLayout {
+        spacing: Theme.space-l;
+        VerticalLayout {
+            alignment: center;
+            Avatar {
+                size: 76px;
+                face: root.face;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: Theme.space-xs;
+            horizontal-stretch: 1;
+            name := NameField {
+                hint: name.text != "" && name.text != State.me.name ? "Enter" : "";
+                height: 46px;
+                writing: Theme.title;
+                weight: 600;
+                wrong: root.empty;
+                accepted => {
+                    root.save();
+                }
+                edited(text) => {
+                    if text != "" {
+                        root.empty = false;
+                    }
+                }
+                backed-out => {
+                    if name.text == State.me.name && !root.empty {
+                        return false;
+                    }
+                    root.keep();
+                    return true;
+                }
+                left => {
+                    if name.text == "" {
+                        root.keep();
+                    } else if name.text != State.me.name {
+                        root.save();
+                    }
+                }
+            }
+
+            if root.empty: Text {
+                text: "Type a name: it cannot be empty.";
+                color: Theme.bad;
+                font-size: Theme.small;
+                wrap: word-wrap;
+            }
+            if !root.empty: Caption {
+                text: "This is what the others see.";
+            }
+        }
+    }
+
+    Gap { }
+
+    Heading {
+        text: "Face";
+    }
+
+    FacePicker {
+        across: 10;
+        face: root.face;
+    }
+
+    Caption {
+        height: 16px;
+        text: State.animal == 0 ? "The first letter of your name" : "";
+    }
+}
+
+component SectionTab inherits Pressable {
+    in property <string> name;
+    in property <string> shape;
+    in property <bool> chosen;
+    label: root.name;
+    height: Theme.control-small;
+    border-radius: Theme.radius-small;
+    background: root.chosen ? Theme.accent : root.hover ? Theme.raised : transparent;
+    accessible-checkable: true;
+    accessible-checked: root.chosen;
+    animate background { duration: Theme.quick; }
+    HorizontalLayout {
+        padding-left: Theme.space-m;
+        padding-right: Theme.space-m;
+        spacing: Theme.space-s;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                shape: root.shape;
+                colour: root.chosen ? Theme.on-accent : Theme.text-dim;
+                size: Theme.icon-small;
+            }
+        }
+
+        Text {
+            text: root.name;
+            accessible-role: none;
+            color: root.chosen ? Theme.on-accent : Theme.text;
+            font-size: Theme.body;
+            font-weight: 500;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+    }
+}
+
+export component SettingsSheet inherits Sheet {
+    title: "Settings";
+    sheet-width: Theme.sheet-wide;
+    property <SettingsPart> part: State.settings-part;
+    changed part => {
+        pane.content-y = 0;
+    }
+    closed => {
+        Do.close-settings();
+    }
+    HorizontalLayout {
+        height: min(560px, root.height - 140px);
+        spacing: Theme.space-l;
+        VerticalLayout {
+            width: 156px;
+            alignment: start;
+            spacing: Theme.space-xxs;
+            for entry in [
+                { part: SettingsPart.general, name: "General", shape: Icons.settings },
+                { part: SettingsPart.profile, name: "Profile", shape: Icons.person },
+                { part: SettingsPart.audio, name: "Audio", shape: Icons.volume },
+                { part: SettingsPart.notifications, name: "Notifications", shape: Icons.bell },
+                { part: SettingsPart.keybinds, name: "Keybinds", shape: Icons.keyboard },
+                { part: SettingsPart.about, name: "About", shape: Icons.info },
+            ]: SectionTab {
+                name: entry.name;
+                shape: entry.shape;
+                chosen: entry.part == root.part;
+                clicked => {
+                    Do.turn-settings(entry.part);
+                }
+            }
+        }
+
+        VerticalRule { }
+
+        pane := Scroller {
+            label: "Scroll the settings";
+            horizontal-stretch: 1;
+            VerticalLayout {
+                alignment: start;
+                padding-left: Theme.space-xs;
+                padding-right: Theme.space-xs;
+                if root.part == SettingsPart.general: GeneralSettings { }
+                if root.part == SettingsPart.profile: ProfileSettings { }
+                if root.part == SettingsPart.audio: AudioSettings { }
+                if root.part == SettingsPart.notifications: NotificationSettings { }
+                if root.part == SettingsPart.keybinds: KeybindSettings { }
+                if root.part == SettingsPart.about: AboutSettings {
+                    min-height: pane.visible-height;
+                }
+            }
+        }
+    }
+}
