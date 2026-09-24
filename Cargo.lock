@@ -7498,6 +7498,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "whisperia-e2e"
+version = "1.0.0"
+dependencies = [
+ "mdns-sd",
+ "quinn",
+ "rcgen",
+ "rustls",
+ "tokio",
+ "whisperia",
+ "whisperia-proto",
+ "whisperia-server",
+]
+
+[[package]]
 name = "whisperia-proto"
 version = "1.0.0"
 dependencies = [

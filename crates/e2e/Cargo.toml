@@ -1,0 +1,21 @@
+[package]
+name = "whisperia-e2e"
+description = "End-to-end tests. The only crate allowed to depend on both the client and the server."
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+whisperia = { path = "../client", features = ["testing"] }
+whisperia-server = { path = "../server" }
+whisperia-proto.workspace = true
+tokio.workspace = true
+quinn.workspace = true
+rustls.workspace = true
+mdns-sd.workspace = true
+rcgen = "0.14"
+
+[lints]
+workspace = true

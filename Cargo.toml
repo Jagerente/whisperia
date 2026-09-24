@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["crates/proto", "crates/server", "crates/client", "crates/winmedia"]
+members = ["crates/proto", "crates/server", "crates/client", "crates/winmedia", "crates/e2e"]
+# `cargo build` leaves out the tests: e2e turns on the client's `testing` feature, which must not reach the release exe.
+default-members = ["crates/proto", "crates/server", "crates/client", "crates/winmedia"]
 [workspace.package]
 version = "1.0.0"
 edition = "2021"
