@@ -1,4 +1,6 @@
 mod chat;
+#[cfg(feature = "testing")]
+mod harness;
 mod outside;
 #[cfg(windows)]
 mod pictures;
@@ -24,6 +26,8 @@ use whisperia_proto::{
     PeerId, PROTOCOL_VERSION,
 };
 
+#[cfg(feature = "testing")]
+pub use self::harness::{Hands, Harness, Token};
 use self::outside::Outside;
 use self::ui::{AppWindow, Ask, Do, Page, Pointer, Standing, State, Strings, Theme};
 pub use crate::app::Options;
@@ -61,6 +65,28 @@ const SOUNDS: [(Cue, &str, &str); 11] = [
 
 pub fn run(options: Options) -> anyhow::Result<()> {
     let front = open(options, || {})?;
+    run_until_quit(&front)
+}
+
+#[cfg(feature = "testing")]
+#[doc(hidden)]
+pub fn run_driven(
+    options: Options,
+    mut script: impl FnMut(&mut Hands) -> bool + 'static,
+) -> anyhow::Result<()> {
+    let pictures = Rc::new(std::cell::Cell::new(0u64));
+    let shown = pictures.clone();
+    let front = open(options, move || shown.set(shown.get() + 1))?;
+    let mut hands = Hands {
+        window: front.borrow().window.clone_strong(),
+        pictures,
+    };
+    let steps = slint::Timer::default();
+    steps.start(slint::TimerMode::Repeated, crate::app::LIVE, move || {
+        if !script(&mut hands) {
+            let _ = slint::quit_event_loop();
+        }
+    });
     run_until_quit(&front)
 }
 

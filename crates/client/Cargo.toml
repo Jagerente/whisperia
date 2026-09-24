@@ -51,10 +51,12 @@ tract-pulse-opl = "=0.21.4"
 # start. The testing backend is what `gui::Harness` drives the window with, without a screen; it
 # follows Slint's version exactly and comes only with the `testing` feature, like the harness.
 slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-skia", "renderer-software", "software-renderer-systemfonts", "software-renderer-path", "unstable-wgpu-30", "unstable-winit-030", "accessibility", "image-default-formats"] }
+i-slint-backend-testing = { version = "=1.18.0", features = ["renderer-skia"], optional = true }
 pollster = "0.4"
+png = { version = "0.17", optional = true }
 
 [features]
-testing = []
+testing = ["dep:i-slint-backend-testing", "dep:png"]
 
 [target.'cfg(windows)'.dependencies]
 whisperia-winmedia.workspace = true
