@@ -13,6 +13,7 @@ mod files;
 pub mod gui;
 pub mod instance;
 pub mod jitter;
+pub mod launch;
 pub mod net;
 pub mod preview;
 pub mod screen;
