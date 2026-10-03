@@ -8,3 +8,5 @@ mod reconnect;
 mod room;
 mod rooms;
 mod servers;
+mod share;
+mod watch;
