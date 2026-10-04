@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: version
+        name: Tag matches Cargo.toml
+        shell: pwsh
+        run: |
+          $metadata = cargo metadata --no-deps --format-version 1 | ConvertFrom-Json
+          $version = ($metadata.packages | Where-Object { $_.name -eq 'whisperia' }).version
+          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "tag $env:GITHUB_REF_NAME does not match version $version in Cargo.toml" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build
+        shell: pwsh
+        run: ./scripts/package.ps1
+
+      - name: Pack the archives
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          foreach ($role in 'client', 'server') {
+            $archive = Join-Path $PWD "dist/whisperia-$role-$env:VERSION-windows-x64.zip"
+            Compress-Archive -Path "dist/whisperia-$role/*" -DestinationPath $archive -CompressionLevel Optimal -Force
+          }
+
+      - name: Publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $archives = @(Get-ChildItem dist -Filter "whisperia-*-$env:VERSION-windows-x64.zip" | ForEach-Object FullName)
+          if ($archives.Count -ne 2) { throw "expected two archives, found $($archives.Count)" }
+          gh release create $env:GITHUB_REF_NAME @archives --verify-tag --generate-notes --title "Whisperia $env:VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }
