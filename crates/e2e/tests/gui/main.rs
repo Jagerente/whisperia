@@ -1,12 +1,16 @@
+mod audio;
 mod card;
 mod chat;
 mod first_start;
 mod host;
+mod keybinds;
 mod pictures;
 mod profile;
 mod reconnect;
 mod room;
 mod rooms;
 mod servers;
+mod settings;
 mod share;
+mod theme;
 mod watch;
