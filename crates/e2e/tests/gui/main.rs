@@ -1,6 +1,7 @@
 mod audio;
 mod card;
 mod chat;
+mod desktop;
 mod first_start;
 mod host;
 mod keybinds;
