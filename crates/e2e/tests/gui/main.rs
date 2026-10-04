@@ -4,6 +4,7 @@ mod chat;
 mod first_start;
 mod host;
 mod keybinds;
+mod keyboard;
 mod pictures;
 mod profile;
 mod reconnect;
