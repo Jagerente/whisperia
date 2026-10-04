@@ -17,5 +17,13 @@ rustls.workspace = true
 mdns-sd.workspace = true
 rcgen = "0.14"
 
+[target.'cfg(windows)'.dependencies]
+whisperia-winmedia = { workspace = true, features = ["testing"] }
+
+# A window wants the main thread: a program of its own, which does nothing unless asked.
+[[test]]
+name = "gui_hardware"
+harness = false
+
 [lints]
 workspace = true

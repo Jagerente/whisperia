@@ -7509,6 +7509,7 @@ dependencies = [
  "whisperia",
  "whisperia-proto",
  "whisperia-server",
+ "whisperia-winmedia",
 ]
 
 [[package]]
