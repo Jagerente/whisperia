@@ -1,0 +1,6 @@
+# Everything the image build does not read. `target` alone is several gigabytes.
+*
+!Cargo.toml
+!Cargo.lock
+!crates
+!LICENSE

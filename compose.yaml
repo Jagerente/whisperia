@@ -1,0 +1,23 @@
+services:
+  server:
+    image: ghcr.io/jagerente/whisperia:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      WHISPERIA_NAME: "Home"
+      # WHISPERIA_PORT: "47820"
+      # WHISPERIA_BIND: "0.0.0.0"
+      # WHISPERIA_PASSWORD: "change-me"
+      # WHISPERIA_MAX_PEERS: "16"
+      # WHISPERIA_NO_ADVERTISE: "false"
+      # WHISPERIA_ADVERTISE_ADDR: "192.168.1.10"
+      # RUST_LOG: "info"
+    volumes:
+      - identity:/data
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  identity:
