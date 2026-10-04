@@ -3,6 +3,7 @@ name = "whisperia-e2e"
 description = "End-to-end tests. The only crate allowed to depend on both the client and the server."
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 publish = false

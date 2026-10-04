@@ -3,6 +3,7 @@ name = "whisperia-server"
 description = "whisperia voice server: forwards Opus datagrams between clients on a LAN"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 

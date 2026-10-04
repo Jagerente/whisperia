@@ -3,6 +3,7 @@ name = "whisperia-winmedia"
 description = "Windows media FFI for whisperia: screen capture, hardware H.264, pictures shared with the window"
 version.workspace = true
 edition.workspace = true
+license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
