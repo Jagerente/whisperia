@@ -1,8 +1,4 @@
-use nnnoiseless::DenoiseState;
-use whisperia_proto::FRAME_SAMPLES;
-
 const SPEECH_FROM: f32 = 0.95;
-const PCM_SCALE: f32 = 32768.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Heard {
@@ -11,7 +7,7 @@ pub enum Heard {
 }
 
 impl Heard {
-    fn of_probability(probability: f32) -> Self {
+    pub(super) fn of_probability(probability: f32) -> Self {
         if probability >= SPEECH_FROM {
             Self::Speech
         } else {
@@ -20,48 +16,20 @@ impl Heard {
     }
 }
 
-pub struct VoiceDetector {
-    model: Box<DenoiseState<'static>>,
-    input: Vec<f32>,
-    output: Vec<f32>,
-}
-
-impl VoiceDetector {
-    pub fn new() -> Self {
-        Self {
-            model: DenoiseState::new(),
-            input: vec![0.0; FRAME_SAMPLES],
-            output: vec![0.0; FRAME_SAMPLES],
-        }
-    }
-
-    pub fn hear(&mut self, frame: &[f32]) -> Heard {
-        debug_assert_eq!(frame.len(), FRAME_SAMPLES);
-        for (scaled, sample) in self.input.iter_mut().zip(frame) {
-            *scaled = sample * PCM_SCALE;
-        }
-        Heard::of_probability(self.model.process_frame(&mut self.output, &self.input))
-    }
-}
-
-impl Default for VoiceDetector {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use whisperia_proto::FRAME_SAMPLES;
+
     use super::*;
+    use crate::dsp::denoise::{DenoiseMode, Denoiser};
 
     fn share_of_speech(mut sample: impl FnMut(usize) -> f32) -> f32 {
-        let mut detector = VoiceDetector::new();
+        let mut detector = Denoiser::new();
         let mut speech = 0;
         for f in 0..300 {
-            let frame: Vec<f32> = (0..FRAME_SAMPLES)
-                .map(|i| sample(f * FRAME_SAMPLES + i))
-                .collect();
-            if detector.hear(&frame) == Heard::Speech && f >= 100 {
+            let mut frame: [f32; FRAME_SAMPLES] =
+                std::array::from_fn(|i| sample(f * FRAME_SAMPLES + i));
+            if detector.process(DenoiseMode::Off, &mut frame) == Heard::Speech && f >= 100 {
                 speech += 1;
             }
         }

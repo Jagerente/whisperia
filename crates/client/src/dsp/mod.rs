@@ -3,6 +3,7 @@ pub mod cue;
 pub mod denoise;
 pub mod level;
 pub mod limiter;
+pub mod mic;
 pub mod resample;
 pub mod voice;
 

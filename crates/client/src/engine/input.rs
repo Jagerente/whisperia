@@ -16,10 +16,7 @@ use super::{Controls, Mode, Outgoing, Telemetry};
 use crate::{
     audio::{Alarm, Failure},
     codec::VoiceEncoder,
-    dsp::{
-        agc::Agc, db_to_gain, denoise::Denoiser, level::Meter, limiter::Limiter, resample::ToWire,
-        voice::VoiceDetector, Gain,
-    },
+    dsp::{mic::MicChain, resample::ToWire},
 };
 
 const IDLE_WAKE: Duration = Duration::from_millis(20);
@@ -44,43 +41,6 @@ pub(super) struct InputParts {
     pub orders: Receiver<InputCommand>,
 }
 
-struct MicChain {
-    denoiser: Denoiser,
-    voice: VoiceDetector,
-    agc: Agc,
-    gain: Gain,
-    limiter: Limiter,
-    meter: Meter,
-}
-
-impl MicChain {
-    fn process(
-        &mut self,
-        frame: &mut [f32; FRAME_SAMPLES],
-        controls: &Controls,
-        telemetry: &Telemetry,
-        silent: bool,
-    ) {
-        if !silent {
-            self.denoiser.process(controls.denoise(), frame);
-            let heard = self.voice.hear(frame);
-            self.agc.listen(frame, heard);
-            telemetry.agc_gain_db.set(self.agc.gain_db());
-        }
-        let gain_db = match controls.agc.load(Ordering::Relaxed) {
-            true => self.agc.gain_db(),
-            false => controls.mic_gain_db.get(),
-        };
-        self.gain.glide(frame, db_to_gain(gain_db));
-        self.limiter.process(frame);
-        self.meter.feed(frame);
-        telemetry.mic_db.set(self.meter.db());
-        telemetry
-            .mic_talking
-            .store(self.meter.talking() && !silent, Ordering::Relaxed);
-    }
-}
-
 struct Worker {
     parts: InputParts,
     chain: MicChain,
@@ -95,14 +55,7 @@ struct Worker {
 pub(super) fn run(parts: InputParts) {
     let mut worker = Worker {
         parts,
-        chain: MicChain {
-            denoiser: Denoiser::new(),
-            voice: VoiceDetector::new(),
-            agc: Agc::default(),
-            gain: Gain::default(),
-            limiter: Limiter::default(),
-            meter: Meter::default(),
-        },
+        chain: MicChain::new(),
         capture: None,
         loopback: None,
         device_samples: Vec::new(),
@@ -187,7 +140,14 @@ impl Worker {
         let p = &self.parts;
         let mode = p.controls.mode();
         let muted = mode == Mode::Room && p.controls.muted.load(Ordering::Relaxed);
-        self.chain.process(frame, &p.controls, &p.telemetry, muted);
+        self.chain.process(frame, p.controls.mic_settings(), muted);
+        if !muted {
+            p.telemetry.agc_gain_db.set(self.chain.agc_gain_db());
+        }
+        p.telemetry.mic_db.set(self.chain.meter().db());
+        p.telemetry
+            .mic_talking
+            .store(self.chain.meter().talking() && !muted, Ordering::Relaxed);
         match mode {
             Mode::Idle => {}
             Mode::MicTest => {

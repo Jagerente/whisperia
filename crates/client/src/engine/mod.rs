@@ -30,6 +30,7 @@ use crate::{
         cue::{Cue, CueRequests},
         denoise::DenoiseMode,
         level::{AtomicF32, SILENCE_DB},
+        mic::MicSettings,
         resample::{FromWire, ResampleError, ToWire},
     },
     jitter::JitterStats,
@@ -117,6 +118,14 @@ impl Controls {
 
     pub fn set_denoise(&self, mode: DenoiseMode) {
         self.denoise.store(mode.as_u8(), Ordering::Relaxed);
+    }
+
+    fn mic_settings(&self) -> MicSettings {
+        MicSettings {
+            denoise: self.denoise(),
+            agc: self.agc.load(Ordering::Relaxed),
+            gain_db: self.mic_gain_db.get(),
+        }
     }
 
     pub fn set_volumes(&self, voice: &[(PeerId, f32)], share: &[(PeerId, f32)]) {
