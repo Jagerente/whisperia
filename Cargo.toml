@@ -4,7 +4,7 @@ members = ["crates/proto", "crates/server", "crates/client", "crates/winmedia", 
 # `cargo build` leaves out the tests: e2e turns on the client's `testing` feature, which must not reach the release exe.
 default-members = ["crates/proto", "crates/server", "crates/client", "crates/winmedia"]
 [workspace.package]
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/jagerente/whisperia"
