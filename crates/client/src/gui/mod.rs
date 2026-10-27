@@ -43,6 +43,7 @@ use crate::{
     },
     dsp::{cue::Cue, denoise::DenoiseMode, level::SILENCE_DB},
     engine::{AudioTrouble, Side},
+    launch::Launched,
     screen::{policy, Preview, SourceKind},
 };
 
@@ -63,9 +64,41 @@ const SOUNDS: [(Cue, &str, &str); 11] = [
     (Cue::Lost, "", "The connection is lost"),
 ];
 
-pub fn run(options: Options) -> anyhow::Result<()> {
+pub fn run(options: Options, launched: &Launched) -> anyhow::Result<()> {
+    let in_the_tray = launched.hidden && options.desktop.is_some();
     let front = open(options, || {})?;
-    run_until_quit(&front)
+    #[cfg(windows)]
+    let _session_end = leave_when_the_session_ends(&front);
+    #[cfg(windows)]
+    {
+        let launched = launched.clone();
+        front.borrow_mut().on_shown = Box::new(move |shown| {
+            if let Err(e) =
+                crate::desktop::session::restart_after_updates(&launched.command_line(!shown))
+            {
+                tracing::warn!("{e}");
+            }
+        });
+    }
+    run_until_quit(&front, !in_the_tray)
+}
+
+#[cfg(windows)]
+fn leave_when_the_session_ends(
+    front: &Rc<RefCell<Front>>,
+) -> Option<crate::desktop::session::SessionEnd> {
+    let front = Rc::downgrade(front);
+    crate::desktop::session::SessionEnd::watch(move || {
+        if let Some(front) = front.upgrade() {
+            match front.try_borrow_mut() {
+                Ok(mut front) => front.core.say_goodbye(),
+                Err(_) => tracing::warn!("the session ends in the middle of a step: no goodbye"),
+            }
+        }
+        std::process::exit(0)
+    })
+    .map_err(|e| tracing::warn!("{e}"))
+    .ok()
 }
 
 #[cfg(feature = "testing")]
@@ -87,7 +120,7 @@ pub fn run_driven(
             let _ = slint::quit_event_loop();
         }
     });
-    run_until_quit(&front)
+    run_until_quit(&front, true)
 }
 
 fn open(
@@ -132,8 +165,11 @@ fn wake_soon(window: slint::Weak<AppWindow>) {
     slint::Timer::single_shot(Duration::ZERO, move || wake(&window));
 }
 
-fn run_until_quit(front: &Rc<RefCell<Front>>) -> anyhow::Result<()> {
-    front.borrow().window.show()?;
+fn run_until_quit(front: &Rc<RefCell<Front>>, shown: bool) -> anyhow::Result<()> {
+    if shown {
+        front.borrow().window.show()?;
+    }
+    (front.borrow().on_shown)(shown);
     front.borrow_mut().tick();
     slint::run_event_loop_until_quit()?;
     Ok(())
@@ -338,6 +374,7 @@ struct Front {
     scheme: Option<slint::language::ColorScheme>,
     next_tick: slint::Timer,
     quitting: bool,
+    on_shown: Box<dyn Fn(bool)>,
 }
 
 impl Front {
@@ -383,6 +420,7 @@ impl Front {
             system_theme,
             scheme: None,
             next_tick: slint::Timer::default(),
+            on_shown: Box::new(|_| {}),
         }));
         front.borrow_mut().apply_appearance();
         {
@@ -447,7 +485,9 @@ impl Front {
         {
             let front = front.clone();
             window.window().on_close_requested(move || {
-                front.borrow_mut().core.window_closed();
+                let mut front = front.borrow_mut();
+                front.core.window_closed();
+                (front.on_shown)(false);
                 slint::CloseRequestResponse::HideWindow
             });
         }
@@ -749,6 +789,7 @@ impl Front {
 
     fn bring_up(&self) {
         let _ = self.window.show();
+        (self.on_shown)(true);
         #[cfg(windows)]
         {
             use slint::winit_030::WinitWindowAccessor;
