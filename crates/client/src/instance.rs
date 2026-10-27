@@ -10,6 +10,8 @@ pub enum InstanceError {
     Create(std::io::Error),
     #[error("cannot start the single-instance thread: {0}")]
     Thread(std::io::Error),
+    #[error("cannot learn how long Windows waits on a program that does not respond: {0}")]
+    Patience(std::io::Error),
     #[error("another copy holds the settings but does not answer: {0}")]
     Silent(std::io::Error),
 }
@@ -67,20 +69,17 @@ pub fn claim(_settings: &Path, _waker: &Waker) -> Result<Claim, InstanceError> {
 
 #[cfg(windows)]
 pub fn claim(settings: &Path, waker: &Waker) -> Result<Claim, InstanceError> {
-    use std::time::Duration;
-
     use tokio::net::windows::named_pipe::ServerOptions;
+    use windows_sys::Win32::Foundation::ERROR_PIPE_BUSY;
 
-    const ATTEMPTS: u32 = 20;
-    const BETWEEN: Duration = Duration::from_millis(100);
+    use crate::pipes::{self, Patience};
 
     let name = pipe_name(settings);
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .map_err(InstanceError::Runtime)?;
-    let mut last = std::io::Error::from(std::io::ErrorKind::NotFound);
-    for _ in 0..ATTEMPTS {
+    loop {
         let first = {
             let _inside = runtime.enter();
             ServerOptions::new().first_pipe_instance(true).create(&name)
@@ -90,30 +89,44 @@ pub fn claim(settings: &Path, waker: &Waker) -> Result<Claim, InstanceError> {
             Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {}
             Err(e) => return Err(InstanceError::Create(e)),
         }
-        match runtime.block_on(tell(&name)) {
+        let patience = Patience::before_not_responding().map_err(InstanceError::Patience)?;
+        let freed = match runtime.block_on(tell(&name, patience)) {
             Ok(()) => return Ok(Claim::Elsewhere),
-            Err(e) => last = e,
+            Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY as i32) => {
+                pipes::wait_for_a_free_end(&name, patience)
+            }
+            Err(e) => Err(e),
+        };
+        match freed {
+            Ok(()) => {}
+            Err(e) if went_away(&e) => {}
+            Err(e) => return Err(InstanceError::Silent(e)),
         }
-        std::thread::sleep(BETWEEN);
     }
-    Err(InstanceError::Silent(last))
+}
+
+#[cfg(windows)]
+fn went_away(e: &std::io::Error) -> bool {
+    use std::io::ErrorKind;
+
+    matches!(
+        e.kind(),
+        ErrorKind::NotFound | ErrorKind::BrokenPipe | ErrorKind::UnexpectedEof
+    )
 }
 
 #[cfg(windows)]
 const ANSWER: u8 = b'!';
 
 #[cfg(windows)]
-async fn tell(name: &str) -> std::io::Result<()> {
+async fn tell(name: &str, patience: crate::pipes::Patience) -> std::io::Result<()> {
     use tokio::{io::AsyncReadExt, net::windows::named_pipe::ClientOptions};
 
     let mut pipe = ClientOptions::new().open(name)?;
     let mut answer = [0u8; 1];
-    tokio::time::timeout(
-        std::time::Duration::from_secs(2),
-        pipe.read_exact(&mut answer),
-    )
-    .await
-    .map_err(|_| std::io::Error::from(std::io::ErrorKind::TimedOut))??;
+    tokio::time::timeout(patience.duration(), pipe.read_exact(&mut answer))
+        .await
+        .map_err(|_| std::io::Error::from(std::io::ErrorKind::TimedOut))??;
     if answer[0] == ANSWER {
         Ok(())
     } else {
@@ -128,32 +141,20 @@ fn listen(
     server: tokio::net::windows::named_pipe::NamedPipeServer,
     waker: &Waker,
 ) -> Result<Instance, InstanceError> {
-    use tokio::{io::AsyncWriteExt, net::windows::named_pipe::ServerOptions};
+    use tokio::net::windows::named_pipe::ServerOptions;
 
+    let spare = {
+        let _inside = runtime.enter();
+        ServerOptions::new().create(&name)
+    }
+    .map_err(InstanceError::Create)?;
     let (calls_to, calls) = crate::wake::channel(waker);
     let (stop_to, stop) = tokio::sync::oneshot::channel::<()>();
     let serve = async move {
-        let mut server = server;
-        loop {
-            let connected = server.connect().await;
-            let next = match ServerOptions::new().create(&name) {
-                Ok(next) => next,
-                Err(e) => {
-                    tracing::warn!("the single-instance pipe stops listening: {e}");
-                    return;
-                }
-            };
-            let mut caller = std::mem::replace(&mut server, next);
-            match connected {
-                Ok(()) => {
-                    if calls_to.send(()).is_err() {
-                        return;
-                    }
-                    let _ = caller.write_all(&[ANSWER]).await;
-                }
-                Err(e) => tracing::warn!("a second start did not get through: {e}"),
-            }
-        }
+        tokio::join!(
+            answer_calls(server, &name, &calls_to),
+            answer_calls(spare, &name, &calls_to),
+        );
     };
     let listening = std::thread::Builder::new()
         .name("ww-instance".into())
@@ -171,6 +172,36 @@ fn listen(
         stop: Some(stop_to),
         listening: Some(listening),
     })
+}
+
+#[cfg(windows)]
+async fn answer_calls(
+    mut server: tokio::net::windows::named_pipe::NamedPipeServer,
+    name: &str,
+    calls_to: &crate::wake::WakingSender<()>,
+) {
+    use tokio::{io::AsyncWriteExt, net::windows::named_pipe::ServerOptions};
+
+    loop {
+        let connected = server.connect().await;
+        let next = match ServerOptions::new().create(name) {
+            Ok(next) => next,
+            Err(e) => {
+                tracing::warn!("the single-instance pipe stops listening: {e}");
+                return;
+            }
+        };
+        let mut caller = std::mem::replace(&mut server, next);
+        match connected {
+            Ok(()) => {
+                if calls_to.send(()).is_err() {
+                    return;
+                }
+                let _ = caller.write_all(&[ANSWER]).await;
+            }
+            Err(e) => tracing::warn!("a second start did not get through: {e}"),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -218,5 +249,82 @@ mod tests {
             matches!(claim(&dir, &waker), Ok(Claim::First(_))),
             "the settings are free as soon as the first copy is gone"
         );
+    }
+
+    #[cfg(windows)]
+    fn settings_of(test: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("ww-instance-{test}-{}", std::process::id()))
+    }
+
+    #[cfg(windows)]
+    fn pipe_runtime() -> tokio::runtime::Runtime {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn two_starts_at_once_both_reach_the_first_copy() {
+        use tokio::{io::AsyncReadExt, net::windows::named_pipe::ClientOptions};
+
+        let dir = settings_of("together");
+        let Ok(Claim::First(first)) = claim(&dir, &Waker::default()) else {
+            panic!("the first start does not get the settings");
+        };
+        let name = pipe_name(&dir);
+        pipe_runtime().block_on(async {
+            let mut one = ClientOptions::new().open(&name).unwrap();
+            let mut two = ClientOptions::new()
+                .open(&name)
+                .expect("a free end is ready while the first caller is served");
+            let mut answers = [0u8; 2];
+            one.read_exact(&mut answers[..1]).await.unwrap();
+            two.read_exact(&mut answers[1..]).await.unwrap();
+            assert_eq!(answers, [ANSWER; 2]);
+        });
+        assert!(first.called());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_copy_that_takes_the_call_but_never_answers_is_given_up_on() {
+        use tokio::net::windows::named_pipe::ServerOptions;
+
+        let dir = settings_of("deaf");
+        let runtime = pipe_runtime();
+        let _deaf = {
+            let _inside = runtime.enter();
+            ServerOptions::new()
+                .first_pipe_instance(true)
+                .create(pipe_name(&dir))
+                .unwrap()
+        };
+        assert!(matches!(
+            claim(&dir, &Waker::default()),
+            Err(InstanceError::Silent(_))
+        ));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_copy_that_never_frees_an_end_is_given_up_on() {
+        use tokio::net::windows::named_pipe::{ClientOptions, ServerOptions};
+
+        let dir = settings_of("taken");
+        let runtime = pipe_runtime();
+        let (_stuck, _taken) = {
+            let _inside = runtime.enter();
+            let stuck = ServerOptions::new()
+                .first_pipe_instance(true)
+                .create(pipe_name(&dir))
+                .unwrap();
+            (stuck, ClientOptions::new().open(pipe_name(&dir)).unwrap())
+        };
+        assert!(matches!(
+            claim(&dir, &Waker::default()),
+            Err(InstanceError::Silent(_))
+        ));
     }
 }

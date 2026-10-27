@@ -15,6 +15,8 @@ pub mod instance;
 pub mod jitter;
 pub mod launch;
 pub mod net;
+#[cfg(windows)]
+mod pipes;
 pub mod preview;
 pub mod screen;
 pub mod trust;
