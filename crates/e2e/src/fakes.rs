@@ -43,6 +43,19 @@ pub fn server_from_before_peeks() -> (quinn::Endpoint, SocketAddr) {
     (endpoint, addr)
 }
 
+pub fn server_that_hangs_up_when_asked() -> (quinn::Endpoint, SocketAddr) {
+    let (endpoint, addr) = quic_server(ALPN_PEEK);
+    let accepting = endpoint.clone();
+    tokio::spawn(async move {
+        while let Some(incoming) = accepting.accept().await {
+            if let Ok(conn) = incoming.await {
+                conn.close(0u32.into(), b"server shutting down");
+            }
+        }
+    });
+    (endpoint, addr)
+}
+
 pub fn slow_server(name: &str, delay: Duration) -> (quinn::Endpoint, SocketAddr) {
     let (endpoint, addr) = quic_server(ALPN_PEEK);
     let accepting = endpoint.clone();

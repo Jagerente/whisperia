@@ -160,6 +160,14 @@ fn a_server_that_shows_another_certificate_is_refused_until_the_user_says_yes() 
     wait_for(&mut panda, "New room");
 }
 
+fn recent(name: &str, addr: SocketAddr) -> RecentServer {
+    RecentServer {
+        name: Name::new(name).unwrap(),
+        address: addr.into(),
+        id: None,
+    }
+}
+
 struct Scene {
     _up: TestServer,
     _penguin: (whisperia::net::Session, net::Events),
@@ -184,11 +192,6 @@ fn remembered_servers() -> (Window, Scene) {
     };
     let nobody = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
 
-    let recent = |name: &str, addr: SocketAddr| RecentServer {
-        name: Name::new(name).unwrap(),
-        address: addr.into(),
-        id: None,
-    };
     let panda = window(Config {
         recent: vec![
             recent("DESKTOP-9FJD", up.addr()),
@@ -267,6 +270,20 @@ fn a_server_that_is_not_up_says_so_in_its_row_without_pointing() {
     hover(&mut panda, "Connect to DESKTOP-3MRX");
     assert_eq!(panda.count_text(OFFLINE), 1, "no tip on top of it");
     picture(&panda, "39-servers-in-every-state");
+}
+
+#[test]
+fn a_server_that_hangs_up_instead_of_answering_is_offline() {
+    let runtime = tokio::runtime::Runtime::new().unwrap();
+    let (_closing, closing_at) = {
+        let _in_runtime = runtime.enter();
+        fakes::server_that_hangs_up_when_asked()
+    };
+    let mut panda = window(Config {
+        recent: vec![recent("DESKTOP-9FJD", closing_at)],
+        ..named("Panda")
+    });
+    wait_for_status(&mut panda, "DESKTOP-9FJD", OFFLINE);
 }
 
 #[test]
