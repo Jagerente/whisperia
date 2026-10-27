@@ -46,14 +46,15 @@ Server:
 
 ## Client
 
-Download `whisperia-client-<version>-windows-x64.zip` from the [latest release](https://github.com/jagerente/whisperia/releases/latest), unpack it anywhere and start `whisperia.exe`. Allow it when the firewall asks. Servers on the local network show up by themselves, any other one is added by its address.
+Download `whisperia-client-<version>-windows-x64-setup.exe` from the [latest release](https://github.com/jagerente/whisperia/releases/latest) and run it: it installs Whisperia for your user, without administrator rights, into `%LOCALAPPDATA%\Programs\Whisperia`, and a newer one updates it in place, closing Whisperia if it is running. Allow Whisperia when the firewall asks. Servers on the local network show up by themselves, any other one is added by its address.
 
 | Option                 |                                                                                                     |
 |------------------------|-----------------------------------------------------------------------------------------------------|
 | `--settings-dir <DIR>` | keep settings and the log in this folder; a copy started with its own folder runs next to the other |
 | `--fake-audio`         | a test tone instead of the microphone                                                               |
+| `--hidden`             | start in the tray, without the window; with no tray the window opens anyway                         |
 
-Without `--settings-dir`, settings are in `%APPDATA%\whisperia\config` and the log is `%LOCALAPPDATA%\whisperia\data\client.log`.
+Without `--settings-dir`, settings are in `%APPDATA%\whisperia\config` and the log is `%LOCALAPPDATA%\whisperia\data\client.log`. Uninstalling keeps them unless you tick "Delete my settings and the log too".
 
 ## Server
 
