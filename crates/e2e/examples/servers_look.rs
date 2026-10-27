@@ -5,6 +5,7 @@ use whisperia::{
     config::{Config, Paths, RecentServer},
     discovery::Search,
     gui,
+    launch::Launched,
     net::Session,
     preview::fake::FakePreviews,
     screen::fake::FakeScreen,
@@ -46,25 +47,28 @@ fn main() {
         id: None,
     };
     let nobody_at = nobody.local_addr().expect("the silent port");
-    gui::run(gui::Options {
-        paths: Paths::resolve(Some(dir.path().to_owned())).expect("the settings folder"),
-        config: Config {
-            recent: vec![
-                recent("DESKTOP-9FJD", quiet.addr()),
-                recent("DESKTOP-HB21", slow),
-                recent("DESKTOP-P4LW", old),
-                recent("DESKTOP-3MRX", nobody_at),
-            ],
-            ..named("Panda")
+    gui::run(
+        gui::Options {
+            paths: Paths::resolve(Some(dir.path().to_owned())).expect("the settings folder"),
+            config: Config {
+                recent: vec![
+                    recent("DESKTOP-9FJD", quiet.addr()),
+                    recent("DESKTOP-HB21", slow),
+                    recent("DESKTOP-P4LW", old),
+                    recent("DESKTOP-3MRX", nobody_at),
+                ],
+                ..named("Panda")
+            },
+            backend: Arc::new(FakeBackend::quiet(48_000, None)),
+            screen: Arc::new(FakeScreen::new()),
+            previews: Arc::new(FakePreviews::default()),
+            connect: None,
+            desktop: None,
+            instance: None,
+            waker: Waker::default(),
+            search: Search::Lan,
         },
-        backend: Arc::new(FakeBackend::quiet(48_000, None)),
-        screen: Arc::new(FakeScreen::new()),
-        previews: Arc::new(FakePreviews::default()),
-        connect: None,
-        desktop: None,
-        instance: None,
-        waker: Waker::default(),
-        search: Search::Lan,
-    })
+        &Launched::default(),
+    )
     .expect("the window opens");
 }
