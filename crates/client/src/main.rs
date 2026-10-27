@@ -9,7 +9,7 @@ use whisperia::{
 fn main() -> anyhow::Result<()> {
     let launch = Launch::parse();
     let outcome = launch.start().and_then(|start| match start {
-        Start::Here(options) => gui::run(*options),
+        Start::Here(options, launched) => gui::run(*options, &launched),
         Start::Elsewhere => Ok(()),
     });
     if let Err(e) = &outcome {

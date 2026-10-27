@@ -12,6 +12,8 @@ pub mod keys;
 #[cfg(windows)]
 mod pump;
 #[cfg(windows)]
+pub mod session;
+#[cfg(windows)]
 mod windows;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
