@@ -231,24 +231,23 @@ pub async fn peek(address: &ServerAddress) -> Result<Glance, PeekError> {
             Miss::Silent(said) => PeekError::Silent(said),
             Miss::Refused(said) => PeekError::Stranger(said),
         })?;
+    let stranger = |e: &dyn std::fmt::Display| PeekError::Stranger(e.to_string());
     let look = async {
-        let mut recv = conn.accept_uni().await.map_err(|e| e.to_string())?;
-        let bytes = recv
-            .read_to_end(MAX_GLANCE)
-            .await
-            .map_err(|e| e.to_string())?;
+        let mut recv = conn.accept_uni().await.map_err(|e| silent(&e))?;
+        let bytes = recv.read_to_end(MAX_GLANCE).await.map_err(|e| match e {
+            quinn::ReadToEndError::Read(quinn::ReadError::ConnectionLost(lost)) => silent(&lost),
+            other => stranger(&other),
+        })?;
         let mut decoder = FrameDecoder::new();
         decoder.push(&bytes);
         decoder
             .next_message::<Glance>()
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "the answer was cut short".to_owned())
+            .map_err(|e| stranger(&e))?
+            .ok_or_else(|| stranger(&"the answer was cut short"))
     };
     let glance = tokio::time::timeout(HANDSHAKE_TIMEOUT, look).await;
     conn.close(0u32.into(), b"seen");
-    glance
-        .map_err(|_| PeekError::Stranger("no answer to a peek".into()))?
-        .map_err(PeekError::Stranger)
+    glance.map_err(|_| stranger(&"no answer to a peek"))?
 }
 
 pub type Connected = (Session, Welcome, mpsc::UnboundedReceiver<SessionEvent>);
