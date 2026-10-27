@@ -32,15 +32,17 @@ jobs:
         shell: pwsh
         run: ./scripts/package.ps1
 
-      - name: Pack the archives
+      - name: Pack the server
         shell: pwsh
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          foreach ($role in 'client', 'server') {
-            $archive = Join-Path $PWD "dist/whisperia-$role-$env:VERSION-windows-x64.zip"
-            Compress-Archive -Path "dist/whisperia-$role/*" -DestinationPath $archive -CompressionLevel Optimal -Force
-          }
+          $archive = Join-Path $PWD "dist/whisperia-server-$env:VERSION-windows-x64.zip"
+          Compress-Archive -Path "dist/whisperia-server/*" -DestinationPath $archive -CompressionLevel Optimal -Force
+
+      - name: Build the client installer
+        shell: pwsh
+        run: ./scripts/installer.ps1 -Output dist
 
       - name: Publish the release
         shell: pwsh
@@ -48,7 +50,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          $archives = @(Get-ChildItem dist -Filter "whisperia-*-$env:VERSION-windows-x64.zip" | ForEach-Object FullName)
-          if ($archives.Count -ne 2) { throw "expected two archives, found $($archives.Count)" }
-          gh release create $env:GITHUB_REF_NAME @archives --verify-tag --generate-notes --title "Whisperia $env:VERSION"
+          $assets = @(
+            "dist/whisperia-client-$env:VERSION-windows-x64-setup.exe",
+            "dist/whisperia-server-$env:VERSION-windows-x64.zip"
+          )
+          $missing = @($assets | Where-Object { -not (Test-Path $_) })
+          if ($missing) { throw "missing: $($missing -join ', ')" }
+          gh release create $env:GITHUB_REF_NAME @assets --verify-tag --generate-notes --title "Whisperia $env:VERSION"
           if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }
